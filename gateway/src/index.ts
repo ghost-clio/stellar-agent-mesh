@@ -73,7 +73,7 @@ app.post('/policy', (req: Request, res: Response) => {
 });
 
 // GET /service/:id — x402-protected
-app.get('/service/:id', (req: Request, res: Response) => {
+app.get('/service/:id', async (req: Request, res: Response) => {
   const id = String(req.params.id);
   const service = registry.getService(id);
 
@@ -118,12 +118,28 @@ app.get('/service/:id', (req: Request, res: Response) => {
 
   const start = Date.now();
 
+  // Forward to actual service endpoint or generate response
+  let responseData: unknown;
+  try {
+    const axios = (await import('axios')).default;
+    const serviceResponse = await axios.get(service.endpoint, {
+      timeout: 30000,
+      headers: { 'X-BUYER-ADDRESS': buyerAddress, 'X-PAYMENT-MEMO': paymentProof },
+    });
+    responseData = serviceResponse.data;
+  } catch {
+    // Fallback: return capability-based mock if endpoint unreachable
+    responseData = {
+      capability: service.capability,
+      provider: service.seller,
+      generated: new Date().toISOString(),
+      note: 'endpoint_unreachable_mock_response',
+    };
+  }
+
   const result: ServiceResult = {
     success: true,
-    data: {
-      data: 'service_response_mock',
-      provider: service.seller,
-    },
+    data: responseData,
     latencyMs: Date.now() - start,
   };
 
