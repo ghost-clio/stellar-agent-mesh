@@ -3,11 +3,21 @@ import axios from "axios";
 import { agents } from "./agents.js";
 import { Scheduler } from "./scheduler.js";
 import { StatsCollector } from "./stats.js";
+import { startServiceRunner, stopServiceRunners } from "./service-runner.js";
 
 dotenv.config();
 
 const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:3402";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const STATS_PATH = "./stats.json";
+
+// Each agent gets its own port for service endpoints
+const AGENT_PORTS: Record<string, number> = {
+  Atlas: 4001,
+  Sage: 4002,
+  Pixel: 4003,
+  Quant: 4004,
+};
 
 async function registerAgents(gatewayUrl: string): Promise<void> {
   for (const agent of agents) {
@@ -59,6 +69,14 @@ async function main(): Promise<void> {
     stats.record(result)
   );
 
+  // Start service runners (Nemo-powered endpoints for each agent)
+  const runners = agents.map((agent) =>
+    startServiceRunner(agent, AGENT_PORTS[agent.name] ?? 4099, OPENROUTER_API_KEY)
+  );
+
+  // Give runners a moment to bind ports
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   // Register all agents and their services on the gateway
   await registerAgents(GATEWAY_URL);
 
@@ -83,6 +101,7 @@ async function main(): Promise<void> {
   const shutdown = () => {
     console.log(`\n[${new Date().toISOString()}] Shutting down...`);
     scheduler.stop();
+    stopServiceRunners(runners);
     stats.stopHourlyWrite();
     stats.writeStats(STATS_PATH);
     console.log(`[${new Date().toISOString()}] Final stats written. Goodbye.`);
