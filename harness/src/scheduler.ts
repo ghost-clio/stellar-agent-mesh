@@ -132,7 +132,7 @@ export class Scheduler {
             "X-PAYMENT-AMOUNT": String(finalAmount),
             "X-PAYMENT-MEMO": txMemo,
           },
-          timeout: 15000,
+          timeout: 60000,
         }
       );
 

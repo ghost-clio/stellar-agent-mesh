@@ -109,9 +109,14 @@ app.get('/service/:id', async (req: Request, res: Response) => {
 
   const rawBuyerAddr = req.headers['x-buyer-address'];
   const buyerAddress: string = (Array.isArray(rawBuyerAddr) ? rawBuyerAddr[0] : rawBuyerAddr) ?? 'unknown';
-  const effectivePrice = registry.getEffectivePrice(id, buyerAddress);
+  
+  // Check actual payment amount from header, or fall back to effective price
+  const rawPaymentAmount = req.headers['x-payment-amount'];
+  const paymentAmount = rawPaymentAmount 
+    ? parseFloat(Array.isArray(rawPaymentAmount) ? rawPaymentAmount[0] : rawPaymentAmount)
+    : registry.getEffectivePrice(id, buyerAddress);
 
-  if (!registry.checkSpend(buyerAddress, effectivePrice)) {
+  if (!registry.checkSpend(buyerAddress, paymentAmount)) {
     res.status(403).json({ error: 'spending_policy_violation' });
     return;
   }
