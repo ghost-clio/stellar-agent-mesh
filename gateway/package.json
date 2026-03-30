@@ -1,0 +1,25 @@
+{
+  "name": "stellar-agent-mesh-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "@stellar/stellar-sdk": "^13.1.0",
+    "dotenv": "^16.4.0",
+    "cors": "^2.8.5",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.0"
+  }
+}

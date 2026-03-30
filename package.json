@@ -1,0 +1,8 @@
+{
+  "name": "stellar-agent-mesh",
+  "version": "0.1.0",
+  "description": "Agent-to-agent economic infrastructure on Stellar via x402 payments",
+  "private": true,
+  "workspaces": ["gateway", "harness"],
+  "license": "Apache-2.0"
+}
