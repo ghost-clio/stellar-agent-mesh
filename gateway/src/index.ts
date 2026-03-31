@@ -41,14 +41,32 @@ interface TxLogEntry {
   details?: Record<string, unknown>;
 }
 
+import fs from "node:fs";
+
 const MAX_TX_LOG = 10000;
+const GATEWAY_TX_LOG = process.env.GATEWAY_TX_LOG || "./transactions.jsonl";
 const txLog: TxLogEntry[] = [];
+
+// Load existing tx log on startup (survives restarts)
+try {
+  if (fs.existsSync(GATEWAY_TX_LOG)) {
+    const lines = fs.readFileSync(GATEWAY_TX_LOG, "utf-8").trim().split("\n").filter(Boolean);
+    for (const line of lines.slice(-MAX_TX_LOG)) {
+      try { txLog.push(JSON.parse(line)); } catch { /* skip malformed */ }
+    }
+    console.log(`[${new Date().toISOString()}] Loaded ${txLog.length} transactions from ${GATEWAY_TX_LOG}`);
+  }
+} catch { /* first run */ }
 
 function pushTxLog(entry: TxLogEntry): void {
   txLog.push(entry);
   if (txLog.length > MAX_TX_LOG) {
-    txLog.splice(0, txLog.length - MAX_TX_LOG); // Keep last 10K
+    txLog.splice(0, txLog.length - MAX_TX_LOG);
   }
+  // Append to persistent JSONL
+  try {
+    fs.appendFileSync(GATEWAY_TX_LOG, JSON.stringify(entry) + "\n", "utf-8");
+  } catch { /* don't crash over logging */ }
 }
 
 // Middleware

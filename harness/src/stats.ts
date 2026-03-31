@@ -1,5 +1,8 @@
 import fs from "node:fs";
+import path from "node:path";
 import { TxResult } from "./scheduler.js";
+
+const TX_LOG_PATH = process.env.TX_LOG_PATH || "./transactions.jsonl";
 
 interface AgentBreakdown {
   txCount: number;
@@ -23,6 +26,53 @@ export class StatsCollector {
 
   record(result: TxResult): void {
     this.allResults.push(result);
+    // Append to persistent JSONL log (survives restarts)
+    this.appendTxLog(result);
+  }
+
+  private appendTxLog(result: TxResult): void {
+    try {
+      const entry = {
+        ts: result.timestamp,
+        buyer: result.buyer,
+        seller: result.seller ?? "",
+        service: result.serviceId,
+        amount: result.amount,
+        success: result.success,
+        latencyMs: result.latencyMs,
+        txHash: result.stellarTxHash ?? null,
+        type: result.type,
+        protocol: result.protocol,
+        memo: result.memo ?? "",
+        error: result.error ?? null,
+      };
+      fs.appendFileSync(TX_LOG_PATH, JSON.stringify(entry) + "\n", "utf-8");
+    } catch (err) {
+      // Don't crash the harness over logging
+      console.error(`[${new Date().toISOString()}] Failed to write tx log:`, err);
+    }
+  }
+
+  /**
+   * Load historical tx count from persistent log (for accurate lifetime stats)
+   */
+  getLifetimeStats(): { total: number; successful: number; failed: number } {
+    try {
+      if (!fs.existsSync(TX_LOG_PATH)) return { total: 0, successful: 0, failed: 0 };
+      const lines = fs.readFileSync(TX_LOG_PATH, "utf-8").trim().split("\n").filter(Boolean);
+      let successful = 0;
+      let failed = 0;
+      for (const line of lines) {
+        try {
+          const tx = JSON.parse(line);
+          if (tx.success) successful++;
+          else failed++;
+        } catch { /* skip malformed */ }
+      }
+      return { total: lines.length, successful, failed };
+    } catch {
+      return { total: 0, successful: 0, failed: 0 };
+    }
   }
 
   getStats(): StatsSnapshot {

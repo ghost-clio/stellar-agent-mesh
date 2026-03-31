@@ -9,3 +9,4 @@ harness-logs/
 contracts/registry/target/
 logs/
 *.pid
+transactions.jsonl
