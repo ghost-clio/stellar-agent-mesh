@@ -6,3 +6,4 @@ stats.json
 agents-keys.json
 harness-logs/
 .env.testnet
+contracts/registry/target/
