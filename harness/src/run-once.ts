@@ -5,7 +5,7 @@
 
 import dotenv from "dotenv";
 import axios from "axios";
-import { agents } from "./agents.js";
+import { loadAgents } from "./agents.js";
 import { Scheduler, TxResult } from "./scheduler.js";
 import { startServiceRunner, stopServiceRunners } from "./service-runner.js";
 
@@ -23,6 +23,10 @@ const AGENT_PORTS: Record<string, number> = {
 
 async function main(): Promise<void> {
   console.log("=== Stellar Agent Mesh — Single Transaction Test ===\n");
+
+  // Load agents with real Stellar keypairs
+  const agents = await loadAgents();
+  console.log(`Loaded ${agents.length} agents with Stellar testnet accounts\n`);
 
   // Start service runners
   const runners = agents.map((agent) =>

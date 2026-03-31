@@ -3,4 +3,6 @@ dist/
 *.js.map
 .env
 stats.json
+agents-keys.json
 harness-logs/
+.env.testnet

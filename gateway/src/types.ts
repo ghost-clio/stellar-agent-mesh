@@ -28,4 +28,6 @@ export interface ServiceResult {
   success: boolean;
   data: unknown;
   latencyMs: number;
+  txHash?: string;
+  txVerified?: boolean;
 }

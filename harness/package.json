@@ -10,9 +10,10 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "node-cron": "^3.0.3",
+    "@stellar/stellar-sdk": "^15.0.1",
     "axios": "1.14.0",
     "dotenv": "^16.4.0",
+    "node-cron": "^3.0.3",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

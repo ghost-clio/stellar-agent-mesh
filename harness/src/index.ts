@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import axios from "axios";
-import { agents } from "./agents.js";
+import { loadAgents, Agent } from "./agents.js";
 import { Scheduler } from "./scheduler.js";
 import { StatsCollector } from "./stats.js";
 import { startServiceRunner, stopServiceRunners } from "./service-runner.js";
@@ -19,7 +19,7 @@ const AGENT_PORTS: Record<string, number> = {
   Quant: 4004,
 };
 
-async function registerAgents(gatewayUrl: string): Promise<void> {
+async function registerAgents(gatewayUrl: string, agents: Agent[]): Promise<void> {
   for (const agent of agents) {
     for (const service of agent.services) {
       try {
@@ -43,7 +43,7 @@ async function registerAgents(gatewayUrl: string): Promise<void> {
   }
 }
 
-async function setSpendingPolicies(gatewayUrl: string): Promise<void> {
+async function setSpendingPolicies(gatewayUrl: string, agents: Agent[]): Promise<void> {
   for (const agent of agents) {
     try {
       await axios.post(`${gatewayUrl}/policy`, {
@@ -64,6 +64,11 @@ async function setSpendingPolicies(gatewayUrl: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Load or create agents with real Stellar testnet keypairs
+  console.log(`[${new Date().toISOString()}] Loading agents...`);
+  const agents = await loadAgents();
+  console.log(`[${new Date().toISOString()}] ${agents.length} agents ready with Stellar testnet accounts`);
+
   const stats = new StatsCollector();
   const scheduler = new Scheduler(GATEWAY_URL, agents, (result) =>
     stats.record(result)
@@ -78,10 +83,10 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   // Register all agents and their services on the gateway
-  await registerAgents(GATEWAY_URL);
+  await registerAgents(GATEWAY_URL, agents);
 
   // Set spending policies
-  await setSpendingPolicies(GATEWAY_URL);
+  await setSpendingPolicies(GATEWAY_URL, agents);
 
   // Start the scheduler
   scheduler.start();

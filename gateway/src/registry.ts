@@ -88,6 +88,10 @@ class InMemoryRegistry {
     return service.price * (100 - discount) / 100;
   }
 
+  getSpendingPolicy(agent: string): PolicyEntry | null {
+    return this.policies.get(agent) ?? null;
+  }
+
   get serviceCount(): number {
     return this.services.size;
   }
