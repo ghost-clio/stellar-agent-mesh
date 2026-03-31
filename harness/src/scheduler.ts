@@ -230,7 +230,7 @@ export class Scheduler {
             "X-PAYMENT-PROOF": stellarTxHash ?? `fallback_${uuidv4()}`,
             "X-PAYMENT-AMOUNT": String(finalAmount),
           },
-          timeout: 60000,
+          timeout: 120000,
         }
       );
 

@@ -43,6 +43,25 @@ async function registerAgents(gatewayUrl: string, agents: Agent[]): Promise<void
   }
 }
 
+async function registerFederationNames(gatewayUrl: string, agents: Agent[]): Promise<void> {
+  for (const agent of agents) {
+    try {
+      await axios.post(`${gatewayUrl}/federation/register`, {
+        name: agent.name.toLowerCase(),
+        address: agent.pubkey,
+      });
+      console.log(
+        `[${new Date().toISOString()}] Federation: ${agent.name.toLowerCase()}*mesh.agent → ${agent.pubkey.slice(0, 12)}...`
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error(
+        `[${new Date().toISOString()}] Failed to register federation for ${agent.name}: ${msg}`
+      );
+    }
+  }
+}
+
 async function setSpendingPolicies(gatewayUrl: string, agents: Agent[]): Promise<void> {
   for (const agent of agents) {
     try {
@@ -84,6 +103,9 @@ async function main(): Promise<void> {
 
   // Register all agents and their services on the gateway
   await registerAgents(GATEWAY_URL, agents);
+
+  // Register federation names (atlas*mesh.agent, sage*mesh.agent, etc.)
+  await registerFederationNames(GATEWAY_URL, agents);
 
   // Set spending policies
   await setSpendingPolicies(GATEWAY_URL, agents);
