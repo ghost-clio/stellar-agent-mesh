@@ -1,0 +1,109 @@
+[2026-03-31T17:52:39.746Z] Loading agents...
+Loaded 4 agent keypairs from /Users/localai/clawd/projects/stellar-agent-mesh/harness/agents-keys.json
+[2026-03-31T17:52:39.748Z] 4 agents ready with Stellar testnet accounts
+[2026-03-31T17:52:39.750Z] Atlas service runner on port 4001 | capabilities: web-search, news-aggregation
+[2026-03-31T17:52:39.751Z] Sage service runner on port 4002 | capabilities: code-review, bug-analysis
+[2026-03-31T17:52:39.751Z] Pixel service runner on port 4003 | capabilities: image-gen, style-transfer
+[2026-03-31T17:52:39.751Z] Quant service runner on port 4004 | capabilities: market-data, risk-scoring
+[2026-03-31T17:52:40.803Z] Registered Atlas/atlas-web-search
+[2026-03-31T17:52:40.806Z] Registered Atlas/atlas-news-aggregation
+[2026-03-31T17:52:40.808Z] Registered Sage/sage-code-review
+[2026-03-31T17:52:40.810Z] Registered Sage/sage-bug-analysis
+[2026-03-31T17:52:40.812Z] Registered Pixel/pixel-image-gen
+[2026-03-31T17:52:40.813Z] Registered Pixel/pixel-style-transfer
+[2026-03-31T17:52:40.814Z] Registered Quant/quant-market-data
+[2026-03-31T17:52:40.815Z] Registered Quant/quant-risk-scoring
+[2026-03-31T17:52:40.820Z] Policy set for Atlas (perTx: 500, daily: 5000)
+[2026-03-31T17:52:40.821Z] Policy set for Sage (perTx: 500, daily: 5000)
+[2026-03-31T17:52:40.822Z] Policy set for Pixel (perTx: 500, daily: 5000)
+[2026-03-31T17:52:40.823Z] Policy set for Quant (perTx: 500, daily: 5000)
+[2026-03-31T17:52:40.826Z] Scheduler started with 10 patterns
+[2026-03-31T17:52:40.826Z] Stats written to ./stats.json (0 txs)
+[2026-03-31T17:52:40.826Z] Stellar Agent Mesh Battle Harness running | 4 agents | 8 services | gateway: http://localhost:3402
+[2026-03-31T17:55:00.211Z] ✓ | Atlas → Quant | quant-market-data | 0.1073 XLM | 9290ms | tx: 377eaee25fd8...
+[2026-03-31T18:00:00.854Z] ✓ | Sage → Atlas | atlas-news-aggregation | 1.129 XLM | 17079ms | tx: 7da0d34afff0...
+[2026-03-31T18:05:00.532Z] ✓ | Quant → Atlas | atlas-web-search | 0.5248 XLM | 28547ms | tx: 05cb534c7d3f...
+[2026-03-31T18:10:00.961Z] ✓ | Sage → Quant | quant-market-data | 0.1042 XLM | 32264ms | tx: 1afea6711daf...
+[2026-03-31T18:15:00.510Z] ✓ | Pixel → Atlas | atlas-web-search | 0.5185 XLM | 33397ms | tx: 87c0eef9c98a...
+[2026-03-31T18:20:00.120Z] ✓ | Quant → Sage | sage-code-review | 1.6122 XLM | 9004ms | tx: c1e351b9caff...
+[2026-03-31T18:25:00.724Z] ✓ | Pixel → Atlas | atlas-news-aggregation | 1.3409 XLM | 19863ms | tx: 0a96659107b2...
+[2026-03-31T18:30:00.344Z] ✓ | Quant → Pixel | pixel-style-transfer | 0.8062 XLM | 47038ms | tx: 9d192d3cb56b...
+[2026-03-31T18:35:00.950Z] ✓ | Atlas → Quant | quant-market-data | 0.1029 XLM | 15315ms | tx: 5d7a775817ff...
+[2026-03-31T18:40:00.332Z] ✓ | Pixel → Sage | sage-code-review | 1.7641 XLM | 8694ms | tx: 838520fa112c...
+[2026-03-31T18:45:00.903Z] ✓ | Pixel → Atlas | atlas-news-aggregation | 1.2256 XLM | 15235ms | tx: 996451e7b306...
+[2026-03-31T18:50:00.299Z] ✓ | Quant → Pixel | pixel-image-gen | 1.3806 XLM | 34580ms | tx: bb054056c58c...
+[2026-03-31T18:52:40.827Z] Stats written to ./stats.json (12 txs)
+[2026-03-31T18:55:00.841Z] ✓ | Quant → Atlas | atlas-web-search | 0.5342 XLM | 22942ms | tx: e5e83c25b826...
+[2026-03-31T19:00:00.453Z] ✓ | Quant → Sage | sage-code-review | 1.7112 XLM | 44791ms | tx: 37d93a345971...
+[2026-03-31T19:05:00.103Z] ✓ | Atlas → Sage | sage-code-review | 1.6994 XLM | 13781ms | tx: ace3a2d12bb5...
+[2026-03-31T19:10:00.755Z] ✓ | Atlas → Sage | sage-bug-analysis | 1.8288 XLM | 17172ms | tx: 661cb03166b5...
+[2026-03-31T19:15:00.381Z] ✓ | Sage → Quant | quant-risk-scoring | 1.097 XLM | 17016ms | tx: 3b2951202771...
+[2026-03-31T19:20:00.011Z] ✓ | Pixel → Quant | quant-market-data | 0.096 XLM | 12474ms | tx: 7ef4b64f73f0...
+[2026-03-31T19:25:00.728Z] ✓ | Sage → Quant | quant-risk-scoring | 1.0757 XLM | 10036ms | tx: c350b4d2ab0a...
+[2026-03-31T19:30:00.340Z] 📦 MPP | Sage → Atlas | atlas-news-aggregation | 1.25 XLM | 5922ms | session: mpp_177498540034
+[2026-03-31T19:30:00.336Z] ✓ | Atlas → Pixel | pixel-image-gen | 1.3933 XLM | 14156ms | tx: f9e0fd735e46...
+[2026-03-31T19:35:00.946Z] ✓ | Quant → Sage | sage-bug-analysis | 1.8014 XLM | 13258ms | tx: 98239ef6dc88...
+[2026-03-31T19:40:00.573Z] ✓ | Sage → Quant | quant-risk-scoring | 1.0591 XLM | 8128ms | tx: b92ae20ef2fd...
+
+[2026-03-31T19:42:35.406Z] Shutting down...
+[2026-03-31T19:42:35.406Z] Scheduler stopped.
+[2026-03-31T19:42:35.406Z] Atlas service runner stopped
+[2026-03-31T19:42:35.406Z] Sage service runner stopped
+[2026-03-31T19:42:35.406Z] Pixel service runner stopped
+[2026-03-31T19:42:35.406Z] Quant service runner stopped
+[2026-03-31T19:42:35.407Z] Stats written to ./stats.json (23 txs)
+[2026-03-31T19:42:35.407Z] Final stats written. Goodbye.
+[2026-03-31T19:43:03.532Z] Loading agents...
+Loaded 4 agent keypairs from /Users/localai/clawd/projects/stellar-agent-mesh/harness/agents-keys.json
+[2026-03-31T19:43:03.534Z] 4 agents ready with Stellar testnet accounts
+[2026-03-31T19:43:03.537Z] Atlas service runner on port 4001 | capabilities: web-search, news-aggregation
+[2026-03-31T19:43:03.537Z] Sage service runner on port 4002 | capabilities: code-review, bug-analysis
+[2026-03-31T19:43:03.537Z] Pixel service runner on port 4003 | capabilities: image-gen, style-transfer
+[2026-03-31T19:43:03.537Z] Quant service runner on port 4004 | capabilities: market-data, risk-scoring
+[2026-03-31T19:43:04.599Z] Registered Atlas/atlas-web-search
+[2026-03-31T19:43:04.603Z] Registered Atlas/atlas-news-aggregation
+[2026-03-31T19:43:04.605Z] Registered Sage/sage-code-review
+[2026-03-31T19:43:04.607Z] Registered Sage/sage-bug-analysis
+[2026-03-31T19:43:04.608Z] Registered Pixel/pixel-image-gen
+[2026-03-31T19:43:04.610Z] Registered Pixel/pixel-style-transfer
+[2026-03-31T19:43:04.611Z] Registered Quant/quant-market-data
+[2026-03-31T19:43:04.613Z] Registered Quant/quant-risk-scoring
+[2026-03-31T19:43:04.617Z] Policy set for Atlas (perTx: 500, daily: 5000)
+[2026-03-31T19:43:04.619Z] Policy set for Sage (perTx: 500, daily: 5000)
+[2026-03-31T19:43:04.619Z] Policy set for Pixel (perTx: 500, daily: 5000)
+[2026-03-31T19:43:04.620Z] Policy set for Quant (perTx: 500, daily: 5000)
+[2026-03-31T19:43:04.624Z] Scheduler started with 10 patterns
+[2026-03-31T19:43:04.624Z] Stats written to ./stats.json (0 txs)
+[2026-03-31T19:43:04.624Z] Stellar Agent Mesh Battle Harness running | 4 agents | 8 services | gateway: http://localhost:3402
+[2026-03-31T19:45:00.867Z] ✓ | Sage → Pixel | pixel-style-transfer | 0.687 XLM | 17913ms | tx: 177a3dd2fc6b...
+
+[2026-03-31T19:47:07.832Z] Shutting down...
+[2026-03-31T19:47:07.833Z] Scheduler stopped.
+[2026-03-31T19:47:07.833Z] Atlas service runner stopped
+[2026-03-31T19:47:07.833Z] Sage service runner stopped
+[2026-03-31T19:47:07.834Z] Pixel service runner stopped
+[2026-03-31T19:47:07.834Z] Quant service runner stopped
+[2026-03-31T19:47:07.834Z] Stats written to ./stats.json (1 txs)
+[2026-03-31T19:47:07.834Z] Final stats written. Goodbye.
+[2026-03-31T19:47:12.388Z] Loading agents...
+Loaded 4 agent keypairs from /Users/localai/clawd/projects/stellar-agent-mesh/harness/agents-keys.json
+[2026-03-31T19:47:12.390Z] 4 agents ready with Stellar testnet accounts
+[2026-03-31T19:47:12.393Z] Atlas service runner on port 4001 | capabilities: web-search, news-aggregation
+[2026-03-31T19:47:12.393Z] Sage service runner on port 4002 | capabilities: code-review, bug-analysis
+[2026-03-31T19:47:12.393Z] Pixel service runner on port 4003 | capabilities: image-gen, style-transfer
+[2026-03-31T19:47:12.393Z] Quant service runner on port 4004 | capabilities: market-data, risk-scoring
+[2026-03-31T19:47:13.447Z] Registered Atlas/atlas-web-search
+[2026-03-31T19:47:13.451Z] Registered Atlas/atlas-news-aggregation
+[2026-03-31T19:47:13.453Z] Registered Sage/sage-code-review
+[2026-03-31T19:47:13.455Z] Registered Sage/sage-bug-analysis
+[2026-03-31T19:47:13.457Z] Registered Pixel/pixel-image-gen
+[2026-03-31T19:47:13.458Z] Registered Pixel/pixel-style-transfer
+[2026-03-31T19:47:13.460Z] Registered Quant/quant-market-data
+[2026-03-31T19:47:13.461Z] Registered Quant/quant-risk-scoring
+[2026-03-31T19:47:13.465Z] Policy set for Atlas (perTx: 500, daily: 5000)
+[2026-03-31T19:47:13.467Z] Policy set for Sage (perTx: 500, daily: 5000)
+[2026-03-31T19:47:13.467Z] Policy set for Pixel (perTx: 500, daily: 5000)
+[2026-03-31T19:47:13.468Z] Policy set for Quant (perTx: 500, daily: 5000)
+[2026-03-31T19:47:13.471Z] Scheduler started with 12 patterns
+[2026-03-31T19:47:13.472Z] Stats written to ./stats.json (0 txs)
+[2026-03-31T19:47:13.472Z] Stellar Agent Mesh Battle Harness running | 4 agents | 8 services | gateway: http://localhost:3402

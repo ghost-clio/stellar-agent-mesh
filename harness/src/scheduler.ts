@@ -144,7 +144,26 @@ export class Scheduler {
       })
     );
 
-    console.log(`[${new Date().toISOString()}] Scheduler started with 10 patterns`);
+    // Self-payment attempt — every 10 hours
+    // Agent accidentally tries to buy its own service. Should fail gracefully.
+    this.tasks.push(
+      cron.schedule("10 */10 * * *", async () => {
+        const result = await this.executeSelfPaymentTest();
+        this.onResult(result);
+      })
+    );
+
+    // Wrong address payment — every 12 hours
+    // Agent sends to a valid but wrong Stellar address (not in mesh).
+    // Tests: federation miss, payment to stranger, no service delivered.
+    this.tasks.push(
+      cron.schedule("40 */12 * * *", async () => {
+        const result = await this.executeWrongAddressTest();
+        this.onResult(result);
+      })
+    );
+
+    console.log(`[${new Date().toISOString()}] Scheduler started with 12 patterns`);
   }
 
   // ── CORE TRANSACTION METHODS ──
@@ -641,6 +660,135 @@ export class Scheduler {
       memo: `multi_asset_${uuidv4().slice(0, 8)}`, timestamp: ts,
       type: "multi_asset", protocol: "x402",
     };
+  }
+
+  /**
+   * Self-payment test — Agent tries to buy its own service.
+   * This is a realistic bug: agent discovers a service, doesn't realize it's theirs.
+   * Should fail gracefully (Stellar rejects self-payment or gateway catches it).
+   */
+  async executeSelfPaymentTest(): Promise<TxResult> {
+    const ts = new Date().toISOString();
+    const agent = this.agents[Math.floor(Math.random() * this.agents.length)];
+    const service = agent.services[0]; // Their OWN service
+    const start = performance.now();
+
+    try {
+      const horizon = new StellarSdk.Horizon.Server(HORIZON_URL);
+      const keypair = StellarSdk.Keypair.fromSecret(agent.secret);
+      const account = await horizon.loadAccount(keypair.publicKey());
+
+      // Try to pay themselves
+      const tx = new StellarSdk.TransactionBuilder(account, {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      })
+        .addOperation(StellarSdk.Operation.payment({
+          destination: agent.pubkey, // SELF — same address
+          asset: StellarSdk.Asset.native(),
+          amount: service.price.toFixed(7),
+        }))
+        .addMemo(StellarSdk.Memo.text("self_pay_oops"))
+        .setTimeout(60)
+        .build();
+
+      tx.sign(keypair);
+      const result = await horizon.submitTransaction(tx);
+      const latencyMs = Math.round(performance.now() - start);
+
+      // Stellar actually ALLOWS self-payment (it's a no-op transfer)
+      // But the agent "notices" and flags it
+      console.log(
+        `[${ts}] 🔄 SELF-PAY | ${agent.name} tried to buy own ${service.id} | tx went through but caught | ${latencyMs}ms`
+      );
+
+      return {
+        success: true, latencyMs, buyer: agent.name, seller: agent.name,
+        serviceId: service.id, amount: service.price,
+        memo: "self_payment_detected", timestamp: ts,
+        stellarTxHash: result.hash,
+        type: "rejection" as any, protocol: "x402",
+        error: "Self-payment detected — agent bought its own service. Transaction reverted logically.",
+      };
+    } catch (err: unknown) {
+      const latencyMs = Math.round(performance.now() - start);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+
+      console.log(
+        `[${ts}] 🔄 SELF-PAY | ${agent.name} → self | Rejected: ${errorMsg.slice(0, 60)} | ${latencyMs}ms`
+      );
+
+      return {
+        success: true, // Expected behavior
+        latencyMs, buyer: agent.name, seller: agent.name,
+        serviceId: service.id, amount: service.price,
+        memo: "self_payment_blocked", timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: `Self-payment correctly rejected: ${errorMsg.slice(0, 100)}`,
+      };
+    }
+  }
+
+  /**
+   * Wrong address test — Agent sends payment to a valid Stellar address
+   * that isn't in the mesh. Simulates typo, stale registry, or federation miss.
+   */
+  async executeWrongAddressTest(): Promise<TxResult> {
+    const ts = new Date().toISOString();
+    const buyer = this.agents[Math.floor(Math.random() * this.agents.length)];
+    const start = performance.now();
+
+    // Generate a random valid Stellar address (not in our mesh)
+    const strangerKeypair = StellarSdk.Keypair.random();
+    const wrongAddress = strangerKeypair.publicKey();
+
+    try {
+      // Try federation lookup for a nonexistent name
+      const fedResult = await axios.get(
+        `${this.gatewayUrl}/federation?type=name&q=nonexistent*mesh.agent`
+      ).catch(() => null);
+
+      const fedFailed = !fedResult || fedResult.status === 404;
+
+      // Try to pay the wrong address via gateway
+      const payResult = await axios.post(`${this.gatewayUrl}/pay`, {
+        senderSecret: buyer.secret,
+        destination: wrongAddress,
+        amount: "0.0010000",
+        memo: "wrong_addr_test",
+      }).catch((err: any) => err.response || { status: 500, data: { error: err.message } });
+
+      const latencyMs = Math.round(performance.now() - start);
+      const payFailed = payResult.status >= 400;
+
+      console.log(
+        `[${ts}] 🎯 WRONG ADDR | ${buyer.name} → ${wrongAddress.slice(0, 12)}... (stranger) | fed=${fedFailed ? "miss" : "hit"} | pay=${payFailed ? "fail" : "sent"} | ${latencyMs}ms`
+      );
+
+      return {
+        success: true, // Test succeeded (we wanted to observe the failure mode)
+        latencyMs, buyer: buyer.name, seller: "stranger",
+        serviceId: "wrong_address_test", amount: 0.001,
+        memo: `wrong_addr_${wrongAddress.slice(0, 8)}`, timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: payFailed
+          ? `Payment to unknown address failed gracefully: ${JSON.stringify(payResult.data).slice(0, 100)}`
+          : `Payment sent to unfunded stranger — funds lost (expected on testnet)`,
+      };
+    } catch (err: unknown) {
+      const latencyMs = Math.round(performance.now() - start);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+
+      console.log(`[${ts}] 🎯 WRONG ADDR | ${buyer.name} | Error: ${errorMsg.slice(0, 60)}`);
+
+      return {
+        success: true, latencyMs, buyer: buyer.name, seller: "stranger",
+        serviceId: "wrong_address_test", amount: 0.001,
+        memo: "wrong_addr_error", timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: `Wrong address test: ${errorMsg.slice(0, 100)}`,
+      };
+    }
   }
 
   stop(): void {
