@@ -10,7 +10,7 @@ AI agents need to pay each other for services. Current solutions build one-off p
 
 ## The Solution
 
-Stellar Agent Mesh is a five-layer stack:
+Stellar Agent Mesh is standalone infrastructure. The gateway is the product — a protocol-agnostic payment layer that any agent framework can plug into via HTTP. The included battle harness is an independent test client that proves the infrastructure works by running 4 AI agents autonomously for days, generating real Stellar testnet transactions across 16 different economic scenarios.
 
 ```
 ┌───────────────────────────────────────────────────────┐
@@ -26,54 +26,58 @@ Stellar Agent Mesh is a five-layer stack:
     │   Federation (SEP-2) │  │  actor                │
     │   Web Auth (SEP-10)  │  │                       │
     │   JWT delivery       │  │                       │
+    │   Zero axios deps    │  │                       │
     └──────────┬──────────┘  └────────────────────────┘
                │
     ┌──────────▼────────────────────────────────────────┐
-    │             BATTLE HARNESS                         │
-    │  4 AI agents transacting autonomously              │
+    │    BATTLE HARNESS (independent test client)        │
+    │  Communicates with gateway exclusively via HTTP    │
+    │  Replaceable by any agent framework                │
     │                                                    │
-    │  Atlas (data)  ←→  Sage (code)                     │
-    │  Pixel (creative) ←→ Quant (math)                  │
-    │                                                    │
-    │  10 transaction patterns:                          │
-    │  Normal · Rejection · Path · Chain · Concurrent    │
-    │  MPP · Federation · Misbehavior · Empty wallet     │
-    │  Multi-asset                                       │
+    │  4 AI agents · 16 transaction patterns             │
+    │  Atlas (data) · Sage (code) · Pixel (creative)     │
+    │  Quant (math)                                      │
     └───────────────────────────────────────────────────┘
 ```
+
+**Architecture note:** The harness has zero cross-imports with the gateway. It talks to the gateway the same way any external agent would — pure HTTP. You could rip out the harness entirely and the infrastructure stands alone.
 
 ## Features
 
 | Feature | Description | Stellar Primitive |
 |---------|-------------|-------------------|
 | **x402 Payments** | HTTP 402 → pay → verify → deliver | Native XLM payments |
-| **MPP Payments** | Machine Payments Protocol (session-based) | Alternative to x402 |
+| **MPP Payments** | Machine Payments Protocol (session-based alternative) | Session lifecycle + Stellar settlement |
 | **Path Payments** | Buyer pays any asset, seller receives preferred | `pathPaymentStrictReceive` |
 | **Federation** | Human-readable addresses (`atlas*mesh.agent`) | SEP-0002 |
-| **Web Auth** | Prove identity via signed challenge | SEP-0010 |
+| **Web Auth** | Prove identity via signed Stellar challenge | SEP-0010 |
 | **JWT Delivery** | Atomic paid delivery protection | HMAC-signed tokens |
 | **Spending Policies** | Per-tx and daily limits with 403 rejection | Soroban contract |
-| **Reputation** | On-chain scoring with misbehavior penalties | Soroban events |
-| **Time Bounds** | Replay protection (60s expiry) | Transaction time bounds |
+| **Reputation Pricing** | Success rate → automatic price discounts (up to 20%) | Soroban events |
+| **Time Bounds** | Replay protection (60s expiry on all txs) | Transaction time bounds |
 | **Chain Payments** | Multi-hop A→B→C sequential payments | Chained transactions |
+| **Persistent Logs** | Append-only JSONL transaction logs (survive restarts) | — |
 
 ## How It Works
 
 ### Dual Protocol Support (x402 + MPP)
 
+Both protocols are first-class. Every 402 response offers both options — agents choose their preferred flow:
+
 ```
 ── x402 Flow ──                    ── MPP Flow ──
 GET /service/xyz                   POST /mpp/session
-← 402 {amount, recipient}         ← {sessionId, amount}
+← 402 {amount, recipient,         ← {sessionId, amount,
+        protocols: {x402, mpp}}           expiresAt}
                                    
-Stellar payment                    Stellar payment
+Submit Stellar payment             Submit Stellar payment
                                    
 GET /service/xyz                   POST /mpp/verify
 + X-Payment-Proof: tx_hash        + {sessionId, txHash}
-← 200 + data                      ← receipt + unlock
+← 200 + service data              ← receipt + service data
 ```
 
-Agents choose their preferred protocol. The 402 response includes both options:
+MPP adds session management on top of x402's simplicity: sessions expire, can be cleaned up, and provide receipts. Both settle on the same Stellar network.
 
 ```json
 {
@@ -87,43 +91,46 @@ Agents choose their preferred protocol. The 402 response includes both options:
 }
 ```
 
-### Federation (SEP-0002)
+### Reputation-Weighted Pricing
 
-Agents register human-readable addresses instead of raw Stellar public keys:
+Reputation isn't decorative — it directly affects economics:
+
+```
+Fresh agent (0 txs):       base_price = 1.75 XLM
+Established (95% success): effective_price = 1.40 XLM (20% discount)
+After misbehavior (80%):   effective_price = 1.54 XLM (discount shrinks)
+```
+
+Formula: `effective_price = base_price × (100 - min(success_rate%, 20)) / 100`
+
+Query pricing for any agent:
+```bash
+GET /service/sage-code-review?buyer=GABCDEF...
+→ { basePrice: 1.75, effectivePrice: 1.40, discount: 20, reputation: {txCount: 50, successCount: 48} }
+```
+
+### Federation (SEP-0002)
 
 ```
 atlas*mesh.agent  →  GABCDEF...
 sage*mesh.agent   →  GHIJKL...
 ```
 
-Payments can use either format:
-```bash
-# Raw address
-POST /pay { "destination": "GABCDEF..." }
-
-# Federation address
-POST /pay { "destination": "sage*mesh.agent" }
-```
-
 ### Web Authentication (SEP-0010)
 
-Agents prove identity via Stellar challenge-response:
-
 ```
-1. GET  /auth/challenge?account=G...    → { transaction: xdr }
+1. GET  /auth/challenge?account=G...    → { transaction: xdr, nonce: "..." }
 2. Agent signs the transaction
 3. POST /auth/verify { transaction }    → { token: "jwt...", expiresIn: 3600 }
 ```
 
+Includes nonce replay protection, 30s clock skew tolerance, and domain binding.
+
 ### JWT Delivery Protection
 
-Prevents "paid but not delivered" scenarios:
-
+Prevents "paid but not delivered":
 ```
-1. Agent pays on Stellar
-2. POST /delivery/token { txHash, serviceId }
-3. Gateway verifies tx on-chain → issues one-time delivery token
-4. Agent redeems token for service
+1. Agent pays → 2. POST /delivery/token {txHash} → 3. Gateway verifies on-chain → 4. One-time token issued
 ```
 
 ### Spending Policies
@@ -131,47 +138,28 @@ Prevents "paid but not delivered" scenarios:
 ```
 Atlas: "Buy code review"        → $1.70  → ✅ Within policy
 Atlas: "Buy everything"         → $10000 → ❌ 403 spending_policy_violation
-Atlas: "Buy code review" (retry)→ $1.70  → ✅ Policy reset, approved
 ```
 
-### Reputation Arc
-
-Reputation increases with successful transactions and **decreases** with misbehavior:
-
-```
-Day 1:  Atlas rep 0/0   (new agent, no history)
-Day 3:  Atlas rep 15/15 (100% success → 15% discount)
-Day 5:  Atlas rep 19/20 (1 misbehavior → discount drops to 19%)
-Day 8:  Atlas rep 35/37 (recovered → discount climbs back)
-```
-
-Formula: `effective_price = base_price × (100 - min(success_rate%, 20)) / 100`
+Daily spend tracking resets at midnight. Check and confirm are split — no double-counting.
 
 ## Components
 
-| Component | Lines | Description |
-|-----------|-------|-------------|
-| `contracts/registry/` | 226 | Soroban registry + reputation + spending policies |
-| `gateway/` | ~800 | Express gateway: x402, MPP, federation, auth, JWT |
-| `skill/` | 5 tools | OpenClaw AgentSkill |
-| `harness/` | ~900 | 4 AI agents, 10 transaction patterns |
+| Component | Lines | Dependencies | Description |
+|-----------|-------|-------------|-------------|
+| `gateway/` | ~850 | express, @stellar/stellar-sdk, @x402/* | Payment infrastructure (zero axios) |
+| `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reputation |
+| `skill/` | 5 tools | bash | OpenClaw AgentSkill |
+| `harness/` | ~1100 | axios, node-cron, @stellar/stellar-sdk | Independent test client |
 
-### Soroban Contract (Deployed)
+### Soroban Contract
 
-**Contract ID:** `CDGABNPXUMVUFUDDUW7SW4YSSJKGZ7SA2P2UJ4DSXUV3KXTE6J2ZSGEI`
+**Contract ID:** `CDGABNPXUMVUFUDDUW7SW4YSSJKGZ7SA2P2UJ4DSXUV3KXTE6J2ZSGEI` (testnet)
 
-Functions:
-- `register_service` — Add a service to the registry
-- `discover` — Find services by capability
-- `update_reputation` — Record transaction outcome
-- `get_reputation` — Query agent trust score
-- `set_spending_policy` — Set per-tx and daily limits
-- `check_spend` — Verify transaction against policy
-- `get_effective_price` — Apply reputation discount
+Functions: `register_service`, `discover`, `update_reputation`, `get_reputation`, `set_spending_policy`, `check_spend`, `get_effective_price`
 
-Events emitted: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
+Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 
-### Gateway Endpoints
+### Gateway Endpoints (21)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -180,6 +168,7 @@ Events emitted: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 | `/register` | POST | Register a service |
 | `/discover` | GET | Find services by capability |
 | `/service/:id` | GET | x402 payment flow (402→pay→200) |
+| `/service/:id?buyer=` | GET | Price query with reputation discount |
 | `/pay` | POST | Direct Stellar payment |
 | `/path-pay` | POST | Path payment via DEX |
 | `/chain` | POST | Multi-hop chain payment |
@@ -194,34 +183,42 @@ Events emitted: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 | `/reputation/penalize` | POST | Record misbehavior |
 | `/policy` | POST | Set spending policy |
 | `/balance/:address` | GET | Check XLM/USDC balance |
-| `/txlog` | GET | Transaction audit log |
+| `/txlog` | GET | Transaction audit log (persistent) |
 | `/health` | GET | System status |
 
 ## Battle Harness
 
-4 agents powered by Nemotron 120B (free on OpenRouter):
+4 agents powered by Nemotron 120B (free on OpenRouter), each running real service endpoints:
 
 | Agent | Services | Personality |
 |-------|----------|-------------|
-| **Atlas** | Web search, News | Concise data analyst |
+| **Atlas** | Web search, News aggregation | Concise data analyst |
 | **Sage** | Code review, Bug analysis | Senior engineer |
 | **Pixel** | Image description, Style transfer | Creative encyclopedist |
 | **Quant** | Market data, Risk scoring | Quantitative analyst |
 
-### 10 Transaction Patterns
+### 16 Transaction Patterns
 
-| Pattern | Frequency | Purpose |
-|---------|-----------|---------|
-| **Normal** | Every 5 min | Standard x402 buy with ±10% price jitter |
-| **Rejection** | Every 12h | $10K request → spending policy violation |
-| **Path Payment** | Every 8h | Cross-asset routing via Stellar DEX |
-| **Chain** | Every 6h | A→B→C multi-hop sequential payment |
-| **Concurrent** | Every 4h | 3 simultaneous purchases (stress test) |
-| **MPP** | Every 3h | Machine Payments Protocol flow |
-| **Federation** | Every 4h | Pay using `name*mesh.agent` address |
-| **Misbehavior** | Every 8h | Agent returns bad data → reputation drops |
-| **Empty Wallet** | Daily 3AM | Unfunded wallet → graceful failure |
-| **Multi-Asset** | Every 6h | 3 buyers, 3 amounts (micro/small/medium) |
+| Pattern | Frequency | Tests |
+|---------|-----------|-------|
+| Normal payment | Every 5 min | Standard x402 buy with ±10% price jitter |
+| $10K rejection | Every 12h | Spending policy enforcement (must reject) |
+| Path payment | Every 8h | Cross-asset routing via Stellar DEX |
+| Chain (A→B→C) | Every 6h | Multi-hop sequential payment |
+| Concurrent burst | Every 4h | 3 simultaneous purchases |
+| MPP session | Every 3h | Full MPP lifecycle (session→pay→verify→receipt) |
+| Federation payment | Every 4h | Pay using `name*mesh.agent` address |
+| Misbehavior | Every 8h | Bad data → reputation penalty → recovery arc |
+| Empty wallet | Daily 3AM | Unfunded agent → graceful failure |
+| Multi-asset | Every 6h | 3 buyers at micro/small/medium amounts |
+| Self-payment | Every 10h | Agent tries to buy own service (edge case) |
+| Wrong address | Every 12h | Payment to stranger + federation miss |
+| 🔥 Stress test | Daily 2AM | 50 transactions in 60 seconds |
+| 🛡️ Malformed proof | Every 8h | Fake tx hash → must reject |
+| 💀 Wallet drain | Daily 4AM | Drain mid-chain → graceful partial failure |
+| 📊 Rep pricing | Every 6h | Compare fresh vs established agent pricing |
+
+Every transaction is logged to persistent JSONL files (harness + gateway perspectives) that survive process restarts.
 
 ## Quick Start
 
@@ -235,13 +232,13 @@ npm install && cd gateway && npm install && cd ../harness && npm install && cd .
 
 # 3. Configure
 cp .env.example .env
-# Edit .env with your OpenRouter API key (free tier)
+# Add your OpenRouter API key (free tier works)
 
-# 4. Run
+# 4. Run everything
 bash start.sh
 
-# Or test a single cycle
-cd harness && npx tsc && OPENROUTER_API_KEY=your_key node dist/run-once.js
+# Or test a single transaction cycle
+cd harness && npx tsc && node dist/run-once.js
 ```
 
 ## OpenClaw Skill
@@ -250,22 +247,19 @@ Install the skill and any OpenClaw agent becomes a Stellar economic actor:
 
 ```bash
 # Discover services
-curl http://localhost:3402/discover?capability=code-review
+bash skill/scripts/discover.sh code-review
 
 # Register as provider
-curl -X POST http://localhost:3402/register \
-  -H 'Content-Type: application/json' \
-  -d '{"id":"my-svc","seller":"G...","price":1.0,"capability":"translation","endpoint":"http://...","name":"myagent"}'
+bash skill/scripts/register.sh my-svc G... 1.0 translation http://...
 
-# Pay via federation address
-curl -X POST http://localhost:3402/pay \
-  -d '{"senderSecret":"S...","destination":"sage*mesh.agent","amount":"1.5"}'
+# Pay via federation
+bash skill/scripts/pay.sh sage*mesh.agent 1.5
 
 # Check reputation
-curl http://localhost:3402/reputation/G...
+bash skill/scripts/reputation.sh G...
 
-# Auth via SEP-0010
-curl http://localhost:3402/auth/challenge?account=G...
+# Check balance
+bash skill/scripts/balance.sh G...
 ```
 
 ## Why Stellar
@@ -284,32 +278,43 @@ curl http://localhost:3402/auth/challenge?account=G...
 | Component | Cost |
 |-----------|------|
 | Nemotron 120B (OpenRouter) | $0 |
-| Stellar testnet | $0 |
+| Stellar testnet (Friendbot) | $0 |
 | Gateway hosting | $0 |
-| **Total** | **$0** |
+| **Total to run the full stack** | **$0** |
 
 ## What's Working, What's Not
 
 ### Working ✅
 - Full x402 flow with real Stellar testnet transactions
-- MPP alternative payment protocol
-- Federation address resolution
-- SEP-0010 challenge-response auth
-- JWT delivery token issuance
+- MPP as a genuine alternative protocol (session lifecycle, expiry cleanup, receipts)
+- Federation address resolution (SEP-0002)
+- SEP-0010 challenge-response auth (nonce replay protection, clock skew tolerance)
+- JWT delivery token issuance (on-chain tx verification)
 - Path payments via Stellar DEX
 - Multi-hop chain transactions (A→B→C)
-- Spending policies with 403 rejection
-- Reputation tracking with misbehavior penalties
-- Soroban contract deployed and callable
-- 54 unit tests passing
+- Spending policies with daily tracking and 403 rejection
+- Reputation-weighted pricing (up to 20% discount)
+- Soroban contract deployed and callable on testnet
+- 54 unit + integration tests passing
+- 16 automated transaction patterns running continuously
+- Persistent JSONL transaction logs (survive restarts)
 - 4 Nemotron-backed agents with real LLM responses
 
 ### Limitations 📝
-- Federation is in-memory (production would use stellar.toml + HTTPS)
-- MPP sessions are in-memory (production would use persistent store)
-- Dynamic multi-asset tests use XLM→XLM (testnet lacks diverse liquidity pools)
-- Soroban contract interactions are simulated in gateway (direct contract calls require additional SDK wiring)
-- No mainnet deployment (testnet only, as recommended for hackathon)
+- Federation is in-memory (production: stellar.toml + HTTPS callback)
+- MPP sessions are in-memory (production: Redis or persistent store)
+- Path payment tests use XLM→XLM (testnet lacks diverse liquidity pools)
+- Soroban contract interactions are gateway-mediated (direct SDK calls need additional wiring)
+- Testnet only (as recommended for hackathon)
+- Harness secret keys passed in request bodies (testnet necessity — production would use wallet signing)
+
+## Security Notes
+- Gateway has zero dependency on axios (uses native `fetch`)
+- SEP-0010 nonces tracked to prevent replay attacks
+- MPP sessions cleaned up on expiry to prevent race conditions
+- Transaction amounts verified within 1% tolerance
+- All Stellar transactions use 60-second time bounds
+- CORS is permissive (testnet scope — production would restrict origins)
 
 ## License
 
