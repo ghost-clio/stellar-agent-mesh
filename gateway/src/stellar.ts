@@ -142,9 +142,14 @@ export async function getBalance(address: string): Promise<{ xlm: string; usdc: 
 }
 
 /**
- * Verify a transaction exists on testnet and extract details
+ * Verify a transaction exists on testnet and extract details.
+ * Optionally verify destination and minimum amount.
  */
-export async function verifyTransaction(txHash: string): Promise<{
+export async function verifyTransaction(
+  txHash: string,
+  expectedRecipient?: string,
+  expectedMinAmount?: number,
+): Promise<{
   verified: boolean;
   from?: string;
   to?: string;
@@ -156,6 +161,16 @@ export async function verifyTransaction(txHash: string): Promise<{
     const tx = await server.transactions().transaction(txHash).call();
     const ops = await server.operations().forTransaction(txHash).call();
     const op = ops.records[0] as any;
+
+    // Verify destination matches expected recipient
+    if (expectedRecipient && op?.to && op.to !== expectedRecipient) {
+      return { verified: false };
+    }
+
+    // Verify amount meets minimum
+    if (expectedMinAmount && op?.amount && parseFloat(op.amount) < expectedMinAmount) {
+      return { verified: false };
+    }
 
     return {
       verified: true,

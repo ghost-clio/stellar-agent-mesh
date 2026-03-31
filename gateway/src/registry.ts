@@ -47,6 +47,10 @@ class InMemoryRegistry {
     this.policies.set(agent, { perTxLimit, dailyLimit });
   }
 
+  /**
+   * Check if a spend is within policy limits.
+   * NOTE: Does NOT update daily spend — call confirmSpend() after payment succeeds.
+   */
   checkSpend(agent: string, amount: number): boolean {
     const policy = this.policies.get(agent);
     if (!policy) {
@@ -69,8 +73,21 @@ class InMemoryRegistry {
       return false;
     }
 
-    this.dailySpend.set(agent, { amount: spent + amount, date: today });
     return true;
+  }
+
+  /**
+   * Record a confirmed spend against daily limit.
+   * Call this AFTER payment is verified, not during checkSpend.
+   */
+  confirmSpend(agent: string, amount: number): void {
+    const today = new Date().toISOString().slice(0, 10);
+    const daily = this.dailySpend.get(agent);
+    let spent = 0;
+    if (daily && daily.date === today) {
+      spent = daily.amount;
+    }
+    this.dailySpend.set(agent, { amount: spent + amount, date: today });
   }
 
   getEffectivePrice(serviceId: string, buyerAddress: string): number {

@@ -17,11 +17,13 @@ const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('he
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
 const CHALLENGE_EXPIRY_SECONDS = 300; // 5 minutes
 const TOKEN_EXPIRY_SECONDS = 3600; // 1 hour
+const CLOCK_SKEW_SECONDS = 30; // Allow 30s clock skew
 
 interface Challenge {
   transaction: string; // base64 XDR
   clientAccount: string;
   createdAt: number;
+  nonce: string;
 }
 
 interface JwtPayload {
@@ -34,19 +36,25 @@ interface JwtPayload {
 class AuthServer {
   private serverKeypair: StellarSdk.Keypair;
   private challenges: Map<string, Challenge> = new Map();
+  private usedNonces: Set<string> = new Set(); // Replay protection
 
   constructor() {
-    // Generate a server keypair for signing challenges
     this.serverKeypair = StellarSdk.Keypair.random();
+
+    // Periodically clean expired nonces (every 10 min)
+    setInterval(() => this.cleanExpiredNonces(), 600_000);
   }
 
   /**
    * Create a SEP-0010 challenge transaction for an agent to sign
    */
-  createChallenge(clientAccount: string): { transaction: string; networkPassphrase: string } {
+  createChallenge(clientAccount: string): {
+    transaction: string;
+    networkPassphrase: string;
+    domain: string;
+  } {
     const nonce = crypto.randomBytes(48).toString('base64');
 
-    // Build a challenge transaction with manage_data op
     const account = new StellarSdk.Account(this.serverKeypair.publicKey(), '-1');
     const now = Math.floor(Date.now() / 1000);
 
@@ -54,7 +62,7 @@ class AuthServer {
       fee: StellarSdk.BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
       timebounds: {
-        minTime: now,
+        minTime: now - CLOCK_SKEW_SECONDS,
         maxTime: now + CHALLENGE_EXPIRY_SECONDS,
       },
     })
@@ -76,11 +84,13 @@ class AuthServer {
       transaction: xdr,
       clientAccount,
       createdAt: now,
+      nonce,
     });
 
     return {
       transaction: xdr,
       networkPassphrase: NETWORK_PASSPHRASE,
+      domain: 'mesh.agent',
     };
   }
 
@@ -91,14 +101,18 @@ class AuthServer {
     try {
       const tx = new StellarSdk.Transaction(signedXdr, NETWORK_PASSPHRASE);
 
-      // Verify time bounds
+      // Verify time bounds with clock skew tolerance
       const now = Math.floor(Date.now() / 1000);
       const timeBounds = tx.timeBounds;
-      if (!timeBounds || now < parseInt(timeBounds.minTime) || now > parseInt(timeBounds.maxTime)) {
-        return null; // Challenge expired
+      if (
+        !timeBounds ||
+        now < parseInt(timeBounds.minTime) - CLOCK_SKEW_SECONDS ||
+        now > parseInt(timeBounds.maxTime) + CLOCK_SKEW_SECONDS
+      ) {
+        return null;
       }
 
-      // Find the manage_data op to get the client account
+      // Find the manage_data op to get the client account and nonce
       const ops = tx.operations;
       const authOp = ops.find(
         (op) => op.type === 'manageData' && (op as any).name === 'mesh.agent auth'
@@ -107,13 +121,20 @@ class AuthServer {
 
       const clientAccount = authOp.source;
 
+      // Extract nonce from manage_data value for replay protection
+      const nonceValue = (authOp as any).value?.toString('base64');
+      if (nonceValue && this.usedNonces.has(nonceValue)) {
+        return null; // Replay detected
+      }
+
       // Verify server signature
-      const serverSigned = this.verifySignature(tx, this.serverKeypair.publicKey());
-      if (!serverSigned) return null;
+      if (!this.verifySignature(tx, this.serverKeypair.publicKey())) return null;
 
       // Verify client signature
-      const clientSigned = this.verifySignature(tx, clientAccount);
-      if (!clientSigned) return null;
+      if (!this.verifySignature(tx, clientAccount)) return null;
+
+      // Mark nonce as used (replay protection)
+      if (nonceValue) this.usedNonces.add(nonceValue);
 
       // Issue JWT
       const payload: JwtPayload = {
@@ -123,7 +144,6 @@ class AuthServer {
         iss: 'mesh.agent',
       };
 
-      // Simple JWT (base64 header.payload.signature)
       const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
       const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
       const sig = crypto
@@ -145,7 +165,10 @@ class AuthServer {
    */
   verifyToken(token: string): JwtPayload | null {
     try {
-      const [header, body, sig] = token.split('.');
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const [header, body, sig] = parts;
+
       const expectedSig = crypto
         .createHmac('sha256', JWT_SECRET)
         .update(`${header}.${body}`)
@@ -164,9 +187,6 @@ class AuthServer {
     }
   }
 
-  /**
-   * Check if a transaction has a valid signature from a given account
-   */
   private verifySignature(tx: StellarSdk.Transaction, publicKey: string): boolean {
     const keypair = StellarSdk.Keypair.fromPublicKey(publicKey);
     const txHash = tx.hash();
@@ -181,6 +201,17 @@ class AuthServer {
       }
     }
     return false;
+  }
+
+  /**
+   * Clean nonces older than challenge expiry to prevent unbounded growth
+   */
+  private cleanExpiredNonces(): void {
+    // Simple approach: clear all nonces periodically
+    // In production, store nonce+timestamp and evict expired ones
+    if (this.usedNonces.size > 10000) {
+      this.usedNonces.clear();
+    }
   }
 
   get serverPublicKey(): string {

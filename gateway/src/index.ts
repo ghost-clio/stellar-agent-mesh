@@ -41,7 +41,15 @@ interface TxLogEntry {
   details?: Record<string, unknown>;
 }
 
+const MAX_TX_LOG = 10000;
 const txLog: TxLogEntry[] = [];
+
+function pushTxLog(entry: TxLogEntry): void {
+  pushTxLog(entry);
+  if (txLog.length > MAX_TX_LOG) {
+    txLog.splice(0, txLog.length - MAX_TX_LOG); // Keep last 10K
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -200,7 +208,7 @@ app.post('/mpp/verify', (req: Request, res: Response) => {
     return;
   }
 
-  txLog.push({
+  pushTxLog({
     timestamp: new Date().toISOString(),
     buyer: payer,
     service: mpp.getSession(sessionId)?.resource ?? 'unknown',
@@ -252,7 +260,8 @@ app.post('/delivery/token', async (req: Request, res: Response) => {
   };
 
   const tokenStr = Buffer.from(JSON.stringify(tokenData)).toString('base64url');
-  const hmac = crypto.createHmac('sha256', process.env.JWT_SECRET || 'mesh-agent-secret')
+  const deliverySecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+  const hmac = crypto.createHmac('sha256', deliverySecret)
     .update(tokenStr)
     .digest('base64url');
 
@@ -388,7 +397,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
 
   // Spending policy check → 403
   if (!registry.checkSpend(buyerAddress, paymentAmount)) {
-    txLog.push({
+    pushTxLog({
       timestamp: new Date().toISOString(),
       buyer: buyerAddress,
       buyerFed: federation.resolveByAddress(buyerAddress)?.stellar_address,
@@ -448,8 +457,9 @@ app.get('/service/:id', async (req: Request, res: Response) => {
   };
 
   registry.updateReputation(buyerAddress, true);
+  registry.confirmSpend(buyerAddress, paymentAmount);
 
-  txLog.push({
+  pushTxLog({
     timestamp: new Date().toISOString(),
     buyer: buyerAddress,
     buyerFed: federation.resolveByAddress(buyerAddress)?.stellar_address,
@@ -556,7 +566,7 @@ app.post('/chain', async (req: Request, res: Response) => {
         from: payResult.from, to: payResult.to, amount: hop.amount, latencyMs: latency,
       });
 
-      txLog.push({
+      pushTxLog({
         timestamp: new Date().toISOString(),
         buyer: payResult.from,
         service: hop.serviceId || `chain_hop_${i}`,

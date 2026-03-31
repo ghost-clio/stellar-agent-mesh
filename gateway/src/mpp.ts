@@ -82,6 +82,15 @@ class MppGateway {
       return null;
     }
 
+    // Verify amount matches session (normalize to avoid string comparison issues)
+    if (amount && parseFloat(amount) < parseFloat(session.amount) * 0.99) {
+      return null; // Underpayment (1% tolerance for rounding)
+    }
+
+    // Atomically: delete session first (prevents double-verify race),
+    // then create receipt
+    this.sessions.delete(sessionId);
+
     const receipt: MppReceipt = {
       sessionId,
       txHash,
@@ -92,7 +101,6 @@ class MppGateway {
     };
 
     this.receipts.set(sessionId, receipt);
-    this.sessions.delete(sessionId); // Session consumed
     return receipt;
   }
 
@@ -108,6 +116,21 @@ class MppGateway {
    */
   getSession(sessionId: string): MppPricing | null {
     return this.sessions.get(sessionId) ?? null;
+  }
+
+  /**
+   * Clean up expired sessions
+   */
+  cleanExpired(): number {
+    const now = new Date();
+    let cleaned = 0;
+    for (const [id, session] of this.sessions) {
+      if (new Date(session.expiresAt) < now) {
+        this.sessions.delete(id);
+        cleaned++;
+      }
+    }
+    return cleaned;
   }
 
   get sessionCount(): number {
