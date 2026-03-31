@@ -1,6 +1,6 @@
 /**
  * Stellar integration — real testnet transactions via @stellar/stellar-sdk
- * Used for direct payments and verification alongside x402 flow
+ * Supports: basic payments, path payments, time-bounded txs, verification
  */
 
 import * as StellarSdk from '@stellar/stellar-sdk';
@@ -17,10 +17,11 @@ export interface PaymentResult {
   to: string;
   amount: string;
   asset: string;
+  type: 'payment' | 'path_payment';
 }
 
 /**
- * Submit a real XLM payment on Stellar testnet
+ * Submit a real XLM payment on Stellar testnet with time bounds
  */
 export async function submitPayment(
   senderSecret: string,
@@ -48,7 +49,8 @@ export async function submitPayment(
     txBuilder.addMemo(StellarSdk.Memo.text(memo.slice(0, 28)));
   }
 
-  const tx = txBuilder.setTimeout(30).build();
+  // Time bounds: valid for 60 seconds from now (prevents stale/replay)
+  const tx = txBuilder.setTimeout(60).build();
   tx.sign(keypair);
 
   const result = await server.submitTransaction(tx);
@@ -60,6 +62,58 @@ export async function submitPayment(
     to: destination,
     amount,
     asset: 'XLM',
+    type: 'payment',
+  };
+}
+
+/**
+ * Submit a path payment — buyer pays XLM, seller receives specified asset
+ * Uses Stellar DEX for automatic routing
+ */
+export async function submitPathPayment(
+  senderSecret: string,
+  destination: string,
+  destAsset: StellarSdk.Asset,
+  destAmount: string,
+  maxSendAmount: string,
+  memo?: string
+): Promise<PaymentResult> {
+  const keypair = StellarSdk.Keypair.fromSecret(senderSecret);
+  const account = await server.loadAccount(keypair.publicKey());
+
+  const txBuilder = new StellarSdk.TransactionBuilder(account, {
+    fee: StellarSdk.BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  });
+
+  txBuilder.addOperation(
+    StellarSdk.Operation.pathPaymentStrictReceive({
+      sendAsset: StellarSdk.Asset.native(), // Buyer always pays XLM
+      sendMax: maxSendAmount,
+      destination,
+      destAsset,
+      destAmount,
+      path: [], // Let Stellar DEX find the path
+    })
+  );
+
+  if (memo) {
+    txBuilder.addMemo(StellarSdk.Memo.text(memo.slice(0, 28)));
+  }
+
+  const tx = txBuilder.setTimeout(60).build();
+  tx.sign(keypair);
+
+  const result = await server.submitTransaction(tx);
+
+  return {
+    hash: result.hash,
+    ledger: result.ledger,
+    from: keypair.publicKey(),
+    to: destination,
+    amount: destAmount,
+    asset: destAsset.isNative() ? 'XLM' : destAsset.getCode(),
+    type: 'path_payment',
   };
 }
 
@@ -88,14 +142,31 @@ export async function getBalance(address: string): Promise<{ xlm: string; usdc: 
 }
 
 /**
- * Verify a transaction exists on testnet
+ * Verify a transaction exists on testnet and extract details
  */
-export async function verifyTransaction(txHash: string): Promise<boolean> {
+export async function verifyTransaction(txHash: string): Promise<{
+  verified: boolean;
+  from?: string;
+  to?: string;
+  amount?: string;
+  memo?: string;
+  createdAt?: string;
+}> {
   try {
-    await server.transactions().transaction(txHash).call();
-    return true;
+    const tx = await server.transactions().transaction(txHash).call();
+    const ops = await server.operations().forTransaction(txHash).call();
+    const op = ops.records[0] as any;
+
+    return {
+      verified: true,
+      from: op?.from || tx.source_account,
+      to: op?.to,
+      amount: op?.amount,
+      memo: tx.memo,
+      createdAt: tx.created_at,
+    };
   } catch {
-    return false;
+    return { verified: false };
   }
 }
 
@@ -111,4 +182,23 @@ export async function fundAccount(address: string): Promise<boolean> {
   }
 }
 
-export { server as horizonServer, NETWORK_PASSPHRASE };
+/**
+ * Query available paths between assets via Stellar DEX
+ */
+export async function findPaymentPaths(
+  sourceAddress: string,
+  destAddress: string,
+  destAsset: StellarSdk.Asset,
+  destAmount: string
+): Promise<any[]> {
+  try {
+    const paths = await server
+      .strictReceivePaths(sourceAddress, destAsset, destAmount)
+      .call();
+    return paths.records;
+  } catch {
+    return [];
+  }
+}
+
+export { server as horizonServer, NETWORK_PASSPHRASE, StellarSdk };

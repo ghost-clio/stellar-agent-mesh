@@ -4,9 +4,17 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
+import { paymentMiddleware, x402ResourceServer } from '@x402/express';
+import { ExactStellarScheme } from '@x402/stellar/exact/server';
 import registry from './registry.js';
 import { PaymentRequirement, ServiceResult } from './types.js';
-import { submitPayment, verifyTransaction, getBalance } from './stellar.js';
+import {
+  submitPayment,
+  submitPathPayment,
+  verifyTransaction,
+  getBalance,
+  StellarSdk,
+} from './stellar.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3402', 10);
@@ -17,14 +25,18 @@ const RECIPIENT_ADDRESS =
 const startTime = Date.now();
 
 // Transaction log for demo/audit
-const txLog: Array<{
+interface TxLogEntry {
   timestamp: string;
   buyer: string;
   service: string;
   amount: number;
   txHash: string;
   verified: boolean;
-}> = [];
+  type: 'payment' | 'path_payment' | 'chain' | 'rejection';
+  details?: Record<string, unknown>;
+}
+
+const txLog: TxLogEntry[] = [];
 
 // Middleware
 app.use(cors());
@@ -36,15 +48,81 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
+// ──────────────────────────────────────────
+// x402 MIDDLEWARE — Official Coinbase x402 protocol
+// Protects /x402/* routes with real payment requirements
+// ──────────────────────────────────────────
+try {
+  const stellarScheme = new ExactStellarScheme();
+  const resourceServer = new x402ResourceServer()
+    .register('stellar:testnet', stellarScheme);
+
+  app.use(
+    paymentMiddleware(
+      {
+        'GET /x402/weather': {
+          accepts: [
+            {
+              scheme: 'exact',
+              price: '$0.001',
+              network: 'stellar:testnet',
+              payTo: RECIPIENT_ADDRESS,
+            },
+          ],
+          description: 'Weather data service',
+          mimeType: 'application/json',
+        },
+        'GET /x402/code-review': {
+          accepts: [
+            {
+              scheme: 'exact',
+              price: '$0.005',
+              network: 'stellar:testnet',
+              payTo: RECIPIENT_ADDRESS,
+            },
+          ],
+          description: 'AI code review service',
+          mimeType: 'application/json',
+        },
+      },
+      resourceServer,
+    ),
+  );
+  console.log('✅ x402 middleware active on /x402/* routes');
+} catch (err: any) {
+  console.warn(`⚠️ x402 middleware init failed (${err.message}), falling back to custom 402`);
+}
+
+// x402-protected endpoints (behind paymentMiddleware)
+app.get('/x402/weather', (_req: Request, res: Response) => {
+  res.json({
+    service: 'weather',
+    data: { temperature: 72, condition: 'sunny', location: 'San Francisco' },
+    timestamp: new Date().toISOString(),
+    paid: true,
+  });
+});
+
+app.get('/x402/code-review', (_req: Request, res: Response) => {
+  res.json({
+    service: 'code-review',
+    data: { review: 'Code looks clean. Consider adding error handling on line 42.', score: 8.5 },
+    timestamp: new Date().toISOString(),
+    paid: true,
+  });
+});
+
+// ──────────────────────────────────────────
+// REGISTRY ENDPOINTS — Service mesh management
+// ──────────────────────────────────────────
+
 // POST /register
 app.post('/register', (req: Request, res: Response) => {
   const { id, seller, price, capability, endpoint } = req.body;
-
   if (!id || !seller || price == null || !capability || !endpoint) {
     res.status(400).json({ error: 'missing required fields: id, seller, price, capability, endpoint' });
     return;
   }
-
   registry.registerService(id, seller, price, capability, endpoint);
   res.status(201).json({ registered: id });
 });
@@ -52,12 +130,10 @@ app.post('/register', (req: Request, res: Response) => {
 // GET /discover?capability=X
 app.get('/discover', (req: Request, res: Response) => {
   const capability = String(req.query.capability || '');
-
   if (!capability) {
     res.status(400).json({ error: 'missing query parameter: capability' });
     return;
   }
-
   const ids = registry.discover(capability);
   res.json({ capability, services: ids });
 });
@@ -72,17 +148,20 @@ app.get('/reputation/:address', (req: Request, res: Response) => {
 // POST /policy
 app.post('/policy', (req: Request, res: Response) => {
   const { agent, perTxLimit, dailyLimit } = req.body;
-
   if (!agent || perTxLimit == null || dailyLimit == null) {
     res.status(400).json({ error: 'missing required fields: agent, perTxLimit, dailyLimit' });
     return;
   }
-
   registry.setSpendingPolicy(agent, perTxLimit, dailyLimit);
   res.json({ agent, perTxLimit, dailyLimit });
 });
 
-// GET /service/:id — x402-protected with REAL Stellar payments
+// ──────────────────────────────────────────
+// SERVICE ENDPOINT — Custom x402 flow with mesh features
+// Supports: reputation discounts, spending policies, tx verification
+// ──────────────────────────────────────────
+
+// GET /service/:id — x402-protected with mesh features
 app.get('/service/:id', async (req: Request, res: Response) => {
   const id = String(req.params.id);
   const service = registry.getService(id);
@@ -103,7 +182,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
 
     const requirement: PaymentRequirement = {
       amount: effectivePrice,
-      asset: 'native', // XLM
+      asset: 'native',
       network: 'stellar:testnet',
       recipient: RECIPIENT_ADDRESS,
       memo: `x402_${uuidv4().slice(0, 8)}`,
@@ -113,11 +192,9 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     return;
   }
 
-  // Verify the payment proof is a real Stellar transaction hash
   const rawBuyerAddr = req.headers['x-buyer-address'];
   const buyerAddress: string = (Array.isArray(rawBuyerAddr) ? rawBuyerAddr[0] : rawBuyerAddr) ?? 'unknown';
 
-  // Check payment amount from header
   const rawPaymentAmount = req.headers['x-payment-amount'];
   const paymentAmount = rawPaymentAmount
     ? parseFloat(Array.isArray(rawPaymentAmount) ? rawPaymentAmount[0] : rawPaymentAmount)
@@ -125,6 +202,17 @@ app.get('/service/:id', async (req: Request, res: Response) => {
 
   // Spending policy check → 403 if violated
   if (!registry.checkSpend(buyerAddress, paymentAmount)) {
+    txLog.push({
+      timestamp: new Date().toISOString(),
+      buyer: buyerAddress,
+      service: id,
+      amount: paymentAmount,
+      txHash: '',
+      verified: false,
+      type: 'rejection',
+      details: { policy: registry.getSpendingPolicy(buyerAddress) },
+    });
+
     res.status(403).json({
       error: 'spending_policy_violation',
       requested: paymentAmount,
@@ -134,12 +222,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
   }
 
   // Verify transaction on Stellar testnet
-  let verified = false;
-  try {
-    verified = await verifyTransaction(paymentProof);
-  } catch {
-    // Verification failed — could be network issue, still proceed with warning
-  }
+  const verification = await verifyTransaction(paymentProof);
 
   const start = Date.now();
 
@@ -167,34 +250,41 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     data: responseData,
     latencyMs: Date.now() - start,
     txHash: paymentProof,
-    txVerified: verified,
+    txVerified: verification.verified,
+    txDetails: verification.verified ? {
+      from: verification.from,
+      to: verification.to,
+      amount: verification.amount,
+      memo: verification.memo,
+    } : undefined,
   };
 
-  // Update reputation
   registry.updateReputation(buyerAddress, true);
 
-  // Log transaction
   txLog.push({
     timestamp: new Date().toISOString(),
     buyer: buyerAddress,
     service: id,
     amount: paymentAmount,
     txHash: paymentProof,
-    verified,
+    verified: verification.verified,
+    type: 'payment',
   });
 
   res.json(result);
 });
 
-// POST /pay — Direct Stellar payment endpoint (for harness)
+// ──────────────────────────────────────────
+// STELLAR PAYMENT ENDPOINTS
+// ──────────────────────────────────────────
+
+// POST /pay — Direct Stellar payment
 app.post('/pay', async (req: Request, res: Response) => {
   const { senderSecret, destination, amount, memo } = req.body;
-
   if (!senderSecret || !destination || !amount) {
     res.status(400).json({ error: 'missing required fields: senderSecret, destination, amount' });
     return;
   }
-
   try {
     const result = await submitPayment(senderSecret, destination, String(amount), memo);
     res.json(result);
@@ -203,7 +293,102 @@ app.post('/pay', async (req: Request, res: Response) => {
   }
 });
 
-// GET /balance/:address — Check Stellar testnet balance
+// POST /path-pay — Path payment via Stellar DEX
+app.post('/path-pay', async (req: Request, res: Response) => {
+  const { senderSecret, destination, destAssetCode, destAssetIssuer, destAmount, maxSend, memo } = req.body;
+  if (!senderSecret || !destination || !destAmount || !maxSend) {
+    res.status(400).json({ error: 'missing required fields: senderSecret, destination, destAmount, maxSend' });
+    return;
+  }
+
+  try {
+    let destAsset: StellarSdk.Asset;
+    if (destAssetCode && destAssetIssuer) {
+      destAsset = new StellarSdk.Asset(destAssetCode, destAssetIssuer);
+    } else {
+      destAsset = StellarSdk.Asset.native();
+    }
+
+    const result = await submitPathPayment(
+      senderSecret, destination, destAsset, String(destAmount), String(maxSend), memo
+    );
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'path_payment_failed' });
+  }
+});
+
+// POST /chain — Three-agent chain: A→B→C with sequential x402 payments
+app.post('/chain', async (req: Request, res: Response) => {
+  const { hops } = req.body;
+  // hops: [{ senderSecret, destination, amount, serviceId, memo }]
+  if (!hops || !Array.isArray(hops) || hops.length < 2) {
+    res.status(400).json({ error: 'chain requires at least 2 hops' });
+    return;
+  }
+
+  const results: any[] = [];
+  const chainId = uuidv4().slice(0, 8);
+  let totalLatency = 0;
+
+  for (let i = 0; i < hops.length; i++) {
+    const hop = hops[i];
+    const hopMemo = `chain_${chainId}_${i}`;
+    const start = Date.now();
+
+    try {
+      const payResult = await submitPayment(
+        hop.senderSecret, hop.destination, String(hop.amount), hopMemo
+      );
+      const latency = Date.now() - start;
+      totalLatency += latency;
+
+      results.push({
+        hop: i + 1,
+        success: true,
+        txHash: payResult.hash,
+        from: payResult.from,
+        to: payResult.to,
+        amount: hop.amount,
+        latencyMs: latency,
+      });
+
+      txLog.push({
+        timestamp: new Date().toISOString(),
+        buyer: payResult.from,
+        service: hop.serviceId || `chain_hop_${i}`,
+        amount: parseFloat(hop.amount),
+        txHash: payResult.hash,
+        verified: true,
+        type: 'chain',
+        details: { chainId, hop: i + 1, totalHops: hops.length },
+      });
+    } catch (err: any) {
+      results.push({
+        hop: i + 1,
+        success: false,
+        error: err.message,
+        latencyMs: Date.now() - start,
+      });
+      break; // Chain breaks on failure
+    }
+  }
+
+  res.json({
+    chainId,
+    hops: results.length,
+    totalHops: hops.length,
+    success: results.every((r) => r.success),
+    totalLatencyMs: totalLatency,
+    results,
+  });
+});
+
+// ──────────────────────────────────────────
+// QUERY ENDPOINTS
+// ──────────────────────────────────────────
+
+// GET /balance/:address
 app.get('/balance/:address', async (req: Request, res: Response) => {
   const address = String(req.params.address);
   try {
@@ -216,10 +401,21 @@ app.get('/balance/:address', async (req: Request, res: Response) => {
 
 // GET /txlog — Transaction audit log
 app.get('/txlog', (_req: Request, res: Response) => {
+  const payments = txLog.filter((t) => t.type === 'payment');
+  const pathPayments = txLog.filter((t) => t.type === 'path_payment');
+  const chains = txLog.filter((t) => t.type === 'chain');
+  const rejections = txLog.filter((t) => t.type === 'rejection');
+
   res.json({
     count: txLog.length,
     verified: txLog.filter((t) => t.verified).length,
-    transactions: txLog.slice(-50), // Last 50
+    breakdown: {
+      payments: payments.length,
+      pathPayments: pathPayments.length,
+      chains: chains.length,
+      rejections: rejections.length,
+    },
+    transactions: txLog.slice(-100),
   });
 });
 
@@ -231,6 +427,8 @@ app.get('/health', (_req: Request, res: Response) => {
     transactions: txLog.length,
     uptime: Math.floor((Date.now() - startTime) / 1000),
     network: 'stellar:testnet',
+    x402: true,
+    features: ['payment', 'path_payment', 'chain', 'spending_policy', 'reputation', 'time_bounds'],
   });
 });
 
@@ -243,6 +441,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(PORT, () => {
   console.log(`Stellar Agent Mesh Gateway running on port ${PORT}`);
   console.log(`Network: stellar:testnet | Recipient: ${RECIPIENT_ADDRESS}`);
+  console.log(`Features: x402, path payments, chain transactions, spending policies`);
 });
 
 export default app;

@@ -30,4 +30,10 @@ export interface ServiceResult {
   latencyMs: number;
   txHash?: string;
   txVerified?: boolean;
+  txDetails?: {
+    from?: string;
+    to?: string;
+    amount?: string;
+    memo?: string;
+  };
 }
