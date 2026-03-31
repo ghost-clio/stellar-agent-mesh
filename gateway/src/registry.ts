@@ -1,10 +1,17 @@
 import { ServiceEntry, RepEntry, PolicyEntry } from './types.js';
 
+interface SpendRecord {
+  serviceId: string;
+  amount: number;
+  timestamp: string;
+}
+
 class InMemoryRegistry {
   private services: Map<string, ServiceEntry> = new Map();
   private reputations: Map<string, RepEntry> = new Map();
   private policies: Map<string, PolicyEntry> = new Map();
   private dailySpend: Map<string, { amount: number; date: string }> = new Map();
+  private spendLedger: Map<string, SpendRecord[]> = new Map();
 
   registerService(
     id: string,
@@ -80,14 +87,59 @@ class InMemoryRegistry {
    * Record a confirmed spend against daily limit.
    * Call this AFTER payment is verified, not during checkSpend.
    */
-  confirmSpend(agent: string, amount: number): void {
-    const today = new Date().toISOString().slice(0, 10);
+  confirmSpend(agent: string, amount: number, serviceId?: string): void {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
     const daily = this.dailySpend.get(agent);
     let spent = 0;
     if (daily && daily.date === today) {
       spent = daily.amount;
     }
     this.dailySpend.set(agent, { amount: spent + amount, date: today });
+
+    // Record to spending ledger
+    if (!this.spendLedger.has(agent)) {
+      this.spendLedger.set(agent, []);
+    }
+    this.spendLedger.get(agent)!.push({
+      serviceId: serviceId ?? 'unknown',
+      amount,
+      timestamp: now.toISOString(),
+    });
+  }
+
+  getSpendingSummary(agent: string): {
+    totalSpent: number;
+    txCount: number;
+    byService: Record<string, { count: number; spent: number }>;
+    byDay: Record<string, number>;
+    recent: SpendRecord[];
+  } {
+    const records = this.spendLedger.get(agent) ?? [];
+    const byService: Record<string, { count: number; spent: number }> = {};
+    const byDay: Record<string, number> = {};
+    let totalSpent = 0;
+
+    for (const r of records) {
+      totalSpent += r.amount;
+
+      if (!byService[r.serviceId]) {
+        byService[r.serviceId] = { count: 0, spent: 0 };
+      }
+      byService[r.serviceId].count++;
+      byService[r.serviceId].spent = parseFloat((byService[r.serviceId].spent + r.amount).toFixed(7));
+
+      const day = r.timestamp.slice(0, 10);
+      byDay[day] = parseFloat(((byDay[day] ?? 0) + r.amount).toFixed(7));
+    }
+
+    return {
+      totalSpent: parseFloat(totalSpent.toFixed(7)),
+      txCount: records.length,
+      byService,
+      byDay,
+      recent: records.slice(-10),
+    };
   }
 
   getPrice(serviceId: string): number {

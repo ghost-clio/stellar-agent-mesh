@@ -354,6 +354,21 @@ app.get('/reputation/:address', (req: Request, res: Response) => {
   res.json({ address, fedAddress: fed?.stellar_address, ...stats });
 });
 
+// GET /spending/:address — What did this agent spend, on what, and when?
+app.get('/spending/:address', (req: Request, res: Response) => {
+  const address = String(req.params.address);
+  const fed = federation.resolveByAddress(address);
+  const summary = registry.getSpendingSummary(address);
+  const policy = registry.getSpendingPolicy(address);
+
+  res.json({
+    agent: address,
+    federation: fed?.stellar_address ?? null,
+    ...summary,
+    policy: policy ?? 'none',
+  });
+});
+
 app.post('/policy', (req: Request, res: Response) => {
   const { agent, perTxLimit, dailyLimit } = req.body;
   if (!agent || perTxLimit == null || dailyLimit == null) {
@@ -502,7 +517,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
   };
 
   registry.updateReputation(buyerAddress, true);
-  registry.confirmSpend(buyerAddress, paymentAmount);
+  registry.confirmSpend(buyerAddress, paymentAmount, id);
 
   pushTxLog({
     timestamp: new Date().toISOString(),
