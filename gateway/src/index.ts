@@ -370,6 +370,24 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     return;
   }
 
+  // Price query mode: GET /service/:id?buyer=<pubkey> returns pricing info without 402
+  const queryBuyer = req.query.buyer as string | undefined;
+  if (queryBuyer && !req.headers['x-payment-proof']) {
+    const effectivePrice = registry.getEffectivePrice(id, queryBuyer);
+    const rep = registry.getReputation(queryBuyer);
+    const buyerFed = federation.resolveByAddress(queryBuyer);
+    res.json({
+      service: id,
+      basePrice: service.price,
+      effectivePrice,
+      discount: service.price > 0 ? Math.round((1 - effectivePrice / service.price) * 100) : 0,
+      buyer: queryBuyer,
+      buyerFederation: buyerFed?.stellar_address ?? null,
+      reputation: rep,
+    });
+    return;
+  }
+
   const rawProof = req.headers['x-payment-proof'];
   const paymentProof = Array.isArray(rawProof) ? rawProof[0] : rawProof;
 

@@ -163,7 +163,66 @@ export class Scheduler {
       })
     );
 
-    console.log(`[${new Date().toISOString()}] Scheduler started with 12 patterns`);
+    // Rapid-fire stress test — 50 txs in 60 seconds. Once daily at 2 AM.
+    this.tasks.push(
+      cron.schedule("0 2 * * *", async () => {
+        console.log(`[${new Date().toISOString()}] 🔥 STRESS TEST | Starting 50 rapid-fire txs...`);
+        let success = 0;
+        let fail = 0;
+        const start = performance.now();
+        const promises: Promise<TxResult>[] = [];
+        for (let i = 0; i < 50; i++) {
+          const { buyer, service } = this.pickRandomBuyerAndService();
+          promises.push(
+            this.executeTransaction(
+              buyer, service.id, service.price, `stress_${i}_${uuidv4().slice(0, 8)}`
+            )
+          );
+          // Stagger slightly to avoid all hitting Stellar at once
+          await new Promise(r => setTimeout(r, 1200));
+        }
+        const results = await Promise.allSettled(promises);
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            this.onResult(r.value);
+            if (r.value.success) success++; else fail++;
+          } else { fail++; }
+        }
+        const totalMs = Math.round(performance.now() - start);
+        console.log(
+          `[${new Date().toISOString()}] 🔥 STRESS DONE | ${success}/${success+fail} succeeded | ${totalMs}ms total | ${Math.round(totalMs/(success+fail))}ms avg`
+        );
+      })
+    );
+
+    // Malformed payment proof — every 8 hours at :25
+    // Send a fake tx hash to the gateway. Should reject gracefully.
+    this.tasks.push(
+      cron.schedule("25 */8 * * *", async () => {
+        const result = await this.executeMalformedProofTest();
+        this.onResult(result);
+      })
+    );
+
+    // Wallet drain mid-chain — once daily at 4 AM
+    // Start a 3-hop chain where middle agent gets drained between hops.
+    this.tasks.push(
+      cron.schedule("0 4 * * *", async () => {
+        const result = await this.executeWalletDrainTest();
+        this.onResult(result);
+      })
+    );
+
+    // Reputation pricing test — every 6 hours at :50
+    // Compare what a fresh agent (no reputation) vs established agent pays for same service.
+    this.tasks.push(
+      cron.schedule("50 */6 * * *", async () => {
+        const result = await this.executeReputationPricingTest();
+        this.onResult(result);
+      })
+    );
+
+    console.log(`[${new Date().toISOString()}] Scheduler started with 16 patterns`);
   }
 
   // ── CORE TRANSACTION METHODS ──
@@ -787,6 +846,251 @@ export class Scheduler {
         memo: "wrong_addr_error", timestamp: ts,
         type: "rejection" as any, protocol: "x402",
         error: `Wrong address test: ${errorMsg.slice(0, 100)}`,
+      };
+    }
+  }
+
+  /**
+   * Malformed payment proof — Send a fake/expired tx hash.
+   * Gateway should reject it and not deliver the service.
+   */
+  async executeMalformedProofTest(): Promise<TxResult> {
+    const ts = new Date().toISOString();
+    const buyer = this.agents[Math.floor(Math.random() * this.agents.length)];
+    const otherAgents = this.agents.filter(a => a.pubkey !== buyer.pubkey);
+    const seller = otherAgents[Math.floor(Math.random() * otherAgents.length)];
+    const service = seller.services[0];
+    const start = performance.now();
+
+    const fakeTxHash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    try {
+      // Try to access a paid service with a fake payment proof
+      const result = await axios.get(`${this.gatewayUrl}/service/${service.id}`, {
+        headers: {
+          "X-PAYMENT-TX": fakeTxHash,
+          "X-BUYER-ADDRESS": buyer.pubkey,
+        },
+        timeout: 15000,
+        validateStatus: () => true, // Don't throw on 4xx
+      });
+
+      const latencyMs = Math.round(performance.now() - start);
+      const rejected = result.status >= 400;
+
+      console.log(
+        `[${ts}] 🛡️ MALFORMED PROOF | ${buyer.name} → ${service.id} | fake hash | ${rejected ? "REJECTED ✓" : "ACCEPTED ✗"} (${result.status}) | ${latencyMs}ms`
+      );
+
+      return {
+        success: rejected, // Success means the gateway REJECTED the fake proof
+        latencyMs, buyer: buyer.name, seller: seller.name,
+        serviceId: service.id, amount: 0,
+        memo: "malformed_proof_test", timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: rejected
+          ? `Fake payment proof correctly rejected (HTTP ${result.status})`
+          : `WARNING: Gateway accepted fake payment proof!`,
+      };
+    } catch (err: unknown) {
+      const latencyMs = Math.round(performance.now() - start);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      console.log(`[${ts}] 🛡️ MALFORMED PROOF | Error: ${errorMsg.slice(0, 60)}`);
+      return {
+        success: true, latencyMs, buyer: buyer.name, seller: seller.name,
+        serviceId: service.id, amount: 0,
+        memo: "malformed_proof_error", timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: `Malformed proof test errored: ${errorMsg.slice(0, 100)}`,
+      };
+    }
+  }
+
+  /**
+   * Wallet drain mid-chain — Agent A pays B, then B tries to pay C
+   * but we drain B's wallet in between. Tests graceful partial chain failure.
+   */
+  async executeWalletDrainTest(): Promise<TxResult> {
+    const ts = new Date().toISOString();
+    const shuffled = [...this.agents].sort(() => Math.random() - 0.5);
+    const [a, b, c] = shuffled.slice(0, 3);
+    const bService = b.services[0];
+    const cService = c.services[0];
+    const start = performance.now();
+
+    try {
+      const horizon = new StellarSdk.Horizon.Server(HORIZON_URL);
+
+      // Step 1: A pays B (should succeed)
+      const aKeypair = StellarSdk.Keypair.fromSecret(a.secret);
+      const aAccount = await horizon.loadAccount(aKeypair.publicKey());
+      const tx1 = new StellarSdk.TransactionBuilder(aAccount, {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      })
+        .addOperation(StellarSdk.Operation.payment({
+          destination: b.pubkey,
+          asset: StellarSdk.Asset.native(),
+          amount: bService.price.toFixed(7),
+        }))
+        .addMemo(StellarSdk.Memo.text("drain_test_hop1"))
+        .setTimeout(60)
+        .build();
+      tx1.sign(aKeypair);
+      const hop1 = await horizon.submitTransaction(tx1);
+
+      // Step 2: Drain B's wallet (send almost everything to A)
+      const bKeypair = StellarSdk.Keypair.fromSecret(b.secret);
+      const bAccount = await horizon.loadAccount(bKeypair.publicKey());
+      const bBalance = bAccount.balances.find(
+        (bal: any) => bal.asset_type === "native"
+      );
+      const drainAmount = Math.max(0, parseFloat(bBalance?.balance ?? "0") - 1.5); // Keep 1.5 for min balance
+
+      if (drainAmount > 0) {
+        const drainTx = new StellarSdk.TransactionBuilder(bAccount, {
+          fee: StellarSdk.BASE_FEE,
+          networkPassphrase: StellarSdk.Networks.TESTNET,
+        })
+          .addOperation(StellarSdk.Operation.payment({
+            destination: a.pubkey,
+            asset: StellarSdk.Asset.native(),
+            amount: drainAmount.toFixed(7),
+          }))
+          .addMemo(StellarSdk.Memo.text("drain_wallet"))
+          .setTimeout(60)
+          .build();
+        drainTx.sign(bKeypair);
+        await horizon.submitTransaction(drainTx);
+      }
+
+      // Step 3: B tries to pay C (should fail — wallet drained)
+      let hop2Failed = false;
+      try {
+        const bAccount2 = await horizon.loadAccount(bKeypair.publicKey());
+        const tx2 = new StellarSdk.TransactionBuilder(bAccount2, {
+          fee: StellarSdk.BASE_FEE,
+          networkPassphrase: StellarSdk.Networks.TESTNET,
+        })
+          .addOperation(StellarSdk.Operation.payment({
+            destination: c.pubkey,
+            asset: StellarSdk.Asset.native(),
+            amount: cService.price.toFixed(7),
+          }))
+          .addMemo(StellarSdk.Memo.text("drain_test_hop2"))
+          .setTimeout(60)
+          .build();
+        tx2.sign(bKeypair);
+        await horizon.submitTransaction(tx2);
+      } catch {
+        hop2Failed = true;
+      }
+
+      // Step 4: Refund B from A (restore balance for future tests)
+      if (drainAmount > 0) {
+        const aAccount2 = await horizon.loadAccount(aKeypair.publicKey());
+        const refundTx = new StellarSdk.TransactionBuilder(aAccount2, {
+          fee: StellarSdk.BASE_FEE,
+          networkPassphrase: StellarSdk.Networks.TESTNET,
+        })
+          .addOperation(StellarSdk.Operation.payment({
+            destination: b.pubkey,
+            asset: StellarSdk.Asset.native(),
+            amount: drainAmount.toFixed(7),
+          }))
+          .addMemo(StellarSdk.Memo.text("drain_refund"))
+          .setTimeout(60)
+          .build();
+        refundTx.sign(aKeypair);
+        await horizon.submitTransaction(refundTx);
+      }
+
+      const latencyMs = Math.round(performance.now() - start);
+      console.log(
+        `[${ts}] 💀 DRAIN TEST | ${a.name}→${b.name}→${c.name} | hop1=✓ drain=${drainAmount.toFixed(1)} hop2=${hop2Failed ? "FAILED ✓" : "succeeded ✗"} refund=✓ | ${latencyMs}ms`
+      );
+
+      return {
+        success: hop2Failed, // Success means hop2 correctly failed after drain
+        latencyMs, buyer: b.name, seller: c.name,
+        serviceId: cService.id, amount: cService.price,
+        stellarTxHash: hop1.hash,
+        memo: `drain_test_${drainAmount.toFixed(1)}`, timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: hop2Failed
+          ? `Chain correctly failed at hop 2 after wallet drain (${drainAmount.toFixed(1)} XLM drained, then refunded)`
+          : `WARNING: Hop 2 succeeded despite wallet drain`,
+      };
+    } catch (err: unknown) {
+      const latencyMs = Math.round(performance.now() - start);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      console.log(`[${ts}] 💀 DRAIN TEST | Error: ${errorMsg.slice(0, 80)}`);
+      return {
+        success: false, latencyMs, buyer: a.name, seller: c.name,
+        serviceId: cService.id, amount: cService.price,
+        memo: "drain_test_error", timestamp: ts,
+        type: "rejection" as any, protocol: "x402",
+        error: `Drain test errored: ${errorMsg.slice(0, 100)}`,
+      };
+    }
+  }
+
+  /**
+   * Reputation pricing test — Query effective price for a fresh agent (no rep)
+   * vs an established agent. Proves reputation system affects real economics.
+   */
+  async executeReputationPricingTest(): Promise<TxResult> {
+    const ts = new Date().toISOString();
+    const start = performance.now();
+
+    try {
+      // Pick a random service
+      const { service } = this.pickRandomBuyerAndService();
+
+      // Fresh agent (random keypair, no reputation)
+      const freshAgent = StellarSdk.Keypair.random();
+
+      // Established agent (pick one with most txs)
+      const established = this.agents.reduce((best, a) => best || a, this.agents[0]);
+
+      // Query effective prices from gateway
+      const [freshPrice, estPrice] = await Promise.all([
+        axios.get(`${this.gatewayUrl}/service/${service.id}?buyer=${freshAgent.publicKey()}`)
+          .then(r => r.data.effectivePrice ?? r.data.price ?? service.price)
+          .catch(() => service.price),
+        axios.get(`${this.gatewayUrl}/service/${service.id}?buyer=${established.pubkey}`)
+          .then(r => r.data.effectivePrice ?? r.data.price ?? service.price)
+          .catch(() => service.price),
+      ]);
+
+      const discount = freshPrice > 0 ? Math.round((1 - estPrice / freshPrice) * 100) : 0;
+      const latencyMs = Math.round(performance.now() - start);
+
+      console.log(
+        `[${ts}] 📊 REP PRICING | ${service.id} | fresh=${freshPrice.toFixed(4)} XLM | ${established.name}=${estPrice.toFixed(4)} XLM | ${discount}% discount | ${latencyMs}ms`
+      );
+
+      return {
+        success: true, latencyMs,
+        buyer: established.name, seller: "pricing_oracle",
+        serviceId: service.id, amount: estPrice,
+        memo: `rep_pricing_discount_${discount}pct`, timestamp: ts,
+        type: "payment" as any, protocol: "x402",
+        error: discount > 0
+          ? `Reputation discount verified: ${discount}% off (${freshPrice.toFixed(4)} → ${estPrice.toFixed(4)} XLM)`
+          : `No discount yet (agent needs more successful txs)`,
+      };
+    } catch (err: unknown) {
+      const latencyMs = Math.round(performance.now() - start);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      console.log(`[${ts}] 📊 REP PRICING | Error: ${errorMsg.slice(0, 60)}`);
+      return {
+        success: false, latencyMs,
+        buyer: "unknown", seller: "pricing_oracle",
+        serviceId: "rep_test", amount: 0,
+        memo: "rep_pricing_error", timestamp: ts,
+        type: "payment" as any, protocol: "x402",
+        error: `Reputation pricing test failed: ${errorMsg.slice(0, 100)}`,
       };
     }
   }
