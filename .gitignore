@@ -1,12 +1,9 @@
 node_modules/
 dist/
-*.js.map
 .env
-stats.json
-agents-keys.json
-harness-logs/
 .env.testnet
+stats.json
+transactions.jsonl
 contracts/registry/target/
 logs/
 *.pid
-transactions.jsonl

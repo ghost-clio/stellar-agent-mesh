@@ -40,7 +40,7 @@ Stellar Agent Mesh is standalone infrastructure. The gateway is the product — 
     └───────────────────────────────────────────────────┘
 ```
 
-**Architecture note:** The harness has zero cross-imports with the gateway. It talks to the gateway the same way any external agent would — pure HTTP. You could rip out the harness entirely and the infrastructure stands alone.
+**Architecture note:** The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) lives in a separate repository. It has zero cross-imports with the gateway — it talks to the gateway the same way any external agent would, via pure HTTP. This infrastructure stands alone.
 
 ## Features
 
@@ -149,7 +149,7 @@ Daily spend tracking resets at midnight. Check and confirm are split — no doub
 | `gateway/` | ~850 | express, @stellar/stellar-sdk, @x402/* | Payment infrastructure (zero axios) |
 | `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reputation |
 | `skill/` | 5 tools | bash | OpenClaw AgentSkill |
-| `harness/` | ~1100 | axios, node-cron, @stellar/stellar-sdk | Independent test client |
+| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | ~1100 | separate repo | Independent test client |
 
 ### Soroban Contract
 
@@ -186,39 +186,11 @@ Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 | `/txlog` | GET | Transaction audit log (persistent) |
 | `/health` | GET | System status |
 
-## Battle Harness
+## Battle Harness (Separate Repo)
 
-4 agents powered by Nemotron 120B (free on OpenRouter), each running real service endpoints:
+The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) runs 4 AI agents (Nemotron 120B) autonomously transacting across 16 economic scenarios — normal payments, stress tests, malformed proofs, wallet drains, reputation arcs, and more. It communicates with this gateway exclusively via HTTP.
 
-| Agent | Services | Personality |
-|-------|----------|-------------|
-| **Atlas** | Web search, News aggregation | Concise data analyst |
-| **Sage** | Code review, Bug analysis | Senior engineer |
-| **Pixel** | Image description, Style transfer | Creative encyclopedist |
-| **Quant** | Market data, Risk scoring | Quantitative analyst |
-
-### 16 Transaction Patterns
-
-| Pattern | Frequency | Tests |
-|---------|-----------|-------|
-| Normal payment | Every 5 min | Standard x402 buy with ±10% price jitter |
-| $10K rejection | Every 12h | Spending policy enforcement (must reject) |
-| Path payment | Every 8h | Cross-asset routing via Stellar DEX |
-| Chain (A→B→C) | Every 6h | Multi-hop sequential payment |
-| Concurrent burst | Every 4h | 3 simultaneous purchases |
-| MPP session | Every 3h | Full MPP lifecycle (session→pay→verify→receipt) |
-| Federation payment | Every 4h | Pay using `name*mesh.agent` address |
-| Misbehavior | Every 8h | Bad data → reputation penalty → recovery arc |
-| Empty wallet | Daily 3AM | Unfunded agent → graceful failure |
-| Multi-asset | Every 6h | 3 buyers at micro/small/medium amounts |
-| Self-payment | Every 10h | Agent tries to buy own service (edge case) |
-| Wrong address | Every 12h | Payment to stranger + federation miss |
-| 🔥 Stress test | Daily 2AM | 50 transactions in 60 seconds |
-| 🛡️ Malformed proof | Every 8h | Fake tx hash → must reject |
-| 💀 Wallet drain | Daily 4AM | Drain mid-chain → graceful partial failure |
-| 📊 Rep pricing | Every 6h | Compare fresh vs established agent pricing |
-
-Every transaction is logged to persistent JSONL files (harness + gateway perspectives) that survive process restarts.
+Every transaction is logged to persistent JSONL files that survive restarts.
 
 ## Quick Start
 
@@ -228,17 +200,17 @@ git clone https://github.com/ghost-clio/stellar-agent-mesh.git
 cd stellar-agent-mesh
 
 # 2. Install
-npm install && cd gateway && npm install && cd ../harness && npm install && cd ..
+cd gateway && npm install && cd ..
 
 # 3. Configure
 cp .env.example .env
-# Add your OpenRouter API key (free tier works)
 
-# 4. Run everything
-bash start.sh
+# 4. Run the gateway
+cd gateway && npx tsc && node dist/index.js
+# Gateway running on http://localhost:3402
 
-# Or test a single transaction cycle
-cd harness && npx tsc && node dist/run-once.js
+# 5. (Optional) Run the battle harness
+# See: https://github.com/ghost-clio/stellar-agent-mesh-harness
 ```
 
 ## OpenClaw Skill
@@ -296,9 +268,8 @@ bash skill/scripts/balance.sh G...
 - Reputation-weighted pricing (up to 20% discount)
 - Soroban contract deployed and callable on testnet
 - 54 unit + integration tests passing
-- 16 automated transaction patterns running continuously
 - Persistent JSONL transaction logs (survive restarts)
-- 4 Nemotron-backed agents with real LLM responses
+- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 automated patterns, 4 Nemotron agents
 
 ### Limitations 📝
 - Federation is in-memory (production: stellar.toml + HTTPS callback)
@@ -306,7 +277,7 @@ bash skill/scripts/balance.sh G...
 - Path payment tests use XLM→XLM (testnet lacks diverse liquidity pools)
 - Soroban contract interactions are gateway-mediated (direct SDK calls need additional wiring)
 - Testnet only (as recommended for hackathon)
-- Harness secret keys passed in request bodies (testnet necessity — production would use wallet signing)
+- Secret keys in harness request bodies (testnet necessity — production would use wallet signing)
 
 ## Security Notes
 - Gateway has zero dependency on axios (uses native `fetch`)
