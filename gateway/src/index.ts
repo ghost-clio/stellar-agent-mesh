@@ -240,9 +240,7 @@ app.post('/delivery/token', async (req: Request, res: Response) => {
     return;
   }
 
-  // Issue a JWT delivery token
-  const payload = auth.verifyToken(''); // Just use the auth server's JWT machinery
-  // Generate a simple capability token
+  // Generate a one-time capability token
   const crypto = await import('crypto');
   const tokenData = {
     serviceId,

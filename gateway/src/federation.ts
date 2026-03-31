@@ -9,6 +9,8 @@
  * Here we maintain an in-memory federation server and resolver.
  */
 
+import * as StellarSdk from '@stellar/stellar-sdk';
+
 export interface FederationRecord {
   stellar_address: string;
   account_id: string;
@@ -25,10 +27,15 @@ class FederationServer {
   /**
    * Register a federation address: name*mesh.agent → G...
    */
-  register(name: string, stellarAddress: string): void {
+  register(name: string, stellarAddress: string): boolean {
+    // Validate Stellar address format
+    if (!StellarSdk.StrKey.isValidEd25519PublicKey(stellarAddress)) {
+      return false;
+    }
     const fedAddr = `${name.toLowerCase()}*${FEDERATION_DOMAIN}`;
     this.nameToAddress.set(fedAddr, stellarAddress);
     this.addressToName.set(stellarAddress, fedAddr);
+    return true;
   }
 
   /**

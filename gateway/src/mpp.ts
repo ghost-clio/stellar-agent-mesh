@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 /**
  * Machine Payments Protocol (MPP) — Alternative payment channel
  *
@@ -44,7 +46,7 @@ class MppGateway {
     amount: string,
     recipient: string,
   ): MppPricing {
-    const sessionId = `mpp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    const sessionId = `mpp_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
 
     const pricing: MppPricing = {
