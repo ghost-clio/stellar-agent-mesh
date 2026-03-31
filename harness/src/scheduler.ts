@@ -138,9 +138,9 @@ export class Scheduler {
         // continue regardless
       }
 
-      // Step 2: Submit real Stellar payment
+      // Step 2: Submit real Stellar payment (skip for amounts > spending policy to test rejection)
       let stellarTxHash: string | undefined;
-      if (seller) {
+      if (seller && finalAmount <= 500) {  // Only submit real tx within spending policy limits
         const horizon = new StellarSdk.Horizon.Server(HORIZON_URL);
         const sourceKeypair = StellarSdk.Keypair.fromSecret(buyer.secret);
         const sourceAccount = await horizon.loadAccount(sourceKeypair.publicKey());
