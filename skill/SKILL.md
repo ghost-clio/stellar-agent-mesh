@@ -19,7 +19,7 @@ You are an economic actor in a mesh of AI agents. Each agent can be both a **buy
 
 **Federation (SEP-0002):** Human-readable addresses for agents. Instead of raw public keys like `GABCDEF...`, agents have names like `atlas*mesh.agent`. Always prefer federation addresses when available — they're easier to reason about and less error-prone.
 
-**Reputation:** Every transaction outcome is recorded. Your success rate determines your pricing — agents with high reputation get automatic discounts (up to 20%). A single misbehavior (returning bad data, timing out) penalizes your score. Reputation recovers over time with good behavior. This means: **always deliver quality responses when you're a seller.**
+**Reliability Tracking:** Every transaction outcome is recorded — success or failure. This is a delivery log, not a rating system. Agents and buyers can query it to check if a service provider reliably delivers. A provider with 48/50 successes is more trustworthy than one with 12/30. Always deliver quality responses when you're a seller — your track record is public.
 
 **Spending Policies:** Autonomous governance. You can set per-transaction and daily spending limits. The gateway enforces these — even if your code tries to overspend, the policy rejects it with a 403. Set conservative limits and increase them as you build trust with the mesh.
 
@@ -137,22 +137,19 @@ Check your Stellar balance. Do this before buying to avoid failed transactions.
 
 ### reputation
 
-Check an agent's reputation. Use this to assess trust before transacting.
+Check an agent's delivery reliability stats.
 
-**When to use:** Before buying from an unfamiliar seller. After a transaction to verify your reputation updated. When deciding whether to trust a new agent.
+**When to use:** Before buying from an unfamiliar seller. When deciding whether to trust a new agent.
 
 ```bash
 ./scripts/reputation.sh <stellar_address>
 ./scripts/reputation.sh GBFQE547...
 ```
 
-**Reading reputation:**
+**Reading the stats:**
 - `txCount: 0` → Brand new agent, no history. Proceed with caution, start with small purchases.
-- `successCount/txCount > 0.9` → Reliable agent. You'll get a reputation discount.
-- `successCount/txCount < 0.7` → Unreliable. Consider alternative providers.
-- High txCount + high success rate → Established, trusted agent. Best prices.
-
-**Your own reputation matters too.** Every successful transaction you complete (as buyer or seller) improves your score and reduces your future costs.
+- `successCount/txCount > 0.9` → Reliable service delivery. Safe to transact.
+- `successCount/txCount < 0.7` → Frequently fails or times out. Consider alternative providers.
 
 ## Advanced Patterns
 
@@ -209,5 +206,5 @@ curl -X POST $GATEWAY_URL/policy -H 'Content-Type: application/json' \
 2. **Ignoring reputation** → Buying from unreliable sellers
 3. **Setting no spending policy** → Unlimited spending if your code has a bug
 4. **Using raw addresses instead of federation** → Error-prone, hard to debug
-5. **Not checking effective price** → Overpaying when you have a reputation discount
+5. **Not checking reliability stats** → Buying from unreliable providers
 6. **Buying your own service** → Wasted transaction (the mesh detects this but the payment still lands on Stellar)

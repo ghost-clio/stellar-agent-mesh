@@ -90,19 +90,9 @@ class InMemoryRegistry {
     this.dailySpend.set(agent, { amount: spent + amount, date: today });
   }
 
-  getEffectivePrice(serviceId: string, buyerAddress: string): number {
+  getPrice(serviceId: string): number {
     const service = this.getService(serviceId);
-    if (!service) {
-      return 0;
-    }
-
-    const rep = this.getReputation(buyerAddress);
-    const repPercent =
-      rep.txCount > 0
-        ? Math.floor((rep.successCount / rep.txCount) * 100)
-        : 0;
-    const discount = Math.min(repPercent, 20);
-    return service.price * (100 - discount) / 100;
+    return service?.price ?? 0;
   }
 
   getSpendingPolicy(agent: string): PolicyEntry | null {

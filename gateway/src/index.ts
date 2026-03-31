@@ -309,19 +309,18 @@ app.post('/register', (req: Request, res: Response) => {
   res.status(201).json({ registered: id, federation: fedAddr });
 });
 
-// POST /reputation/penalize — Penalize an agent for bad behavior
-app.post('/reputation/penalize', (req: Request, res: Response) => {
+// POST /stats/failure — Record a service delivery failure
+app.post('/stats/failure', (req: Request, res: Response) => {
   const { agent, reason } = req.body;
   if (!agent) {
     res.status(400).json({ error: 'missing agent address' });
     return;
   }
-  // Record a failed transaction → reputation drops
   registry.updateReputation(agent, false);
-  const rep = registry.getReputation(agent);
+  const stats = registry.getReputation(agent);
   const fed = federation.resolveByAddress(agent);
-  console.log(`[${new Date().toISOString()}] ⚠️ REPUTATION PENALTY | ${fed?.stellar_address ?? agent.slice(0, 12)} | reason: ${reason} | new score: ${rep.successCount}/${rep.txCount}`);
-  res.json({ agent, reason, reputation: rep, federation: fed?.stellar_address });
+  console.log(`[${new Date().toISOString()}] ⚠️ FAILURE RECORDED | ${fed?.stellar_address ?? agent.slice(0, 12)} | reason: ${reason} | ${stats.successCount}/${stats.txCount}`);
+  res.json({ agent, reason, stats, federation: fed?.stellar_address });
 });
 
 app.get('/discover', (req: Request, res: Response) => {
@@ -340,11 +339,19 @@ app.get('/discover', (req: Request, res: Response) => {
   res.json({ capability, services: enriched });
 });
 
+app.get('/stats/:address', (req: Request, res: Response) => {
+  const address = String(req.params.address);
+  const stats = registry.getReputation(address);
+  const fed = federation.resolveByAddress(address);
+  res.json({ address, fedAddress: fed?.stellar_address, ...stats });
+});
+
+// Keep /reputation as alias for backward compat
 app.get('/reputation/:address', (req: Request, res: Response) => {
   const address = String(req.params.address);
-  const rep = registry.getReputation(address);
+  const stats = registry.getReputation(address);
   const fed = federation.resolveByAddress(address);
-  res.json({ address, fedAddress: fed?.stellar_address, ...rep });
+  res.json({ address, fedAddress: fed?.stellar_address, ...stats });
 });
 
 app.post('/policy', (req: Request, res: Response) => {
@@ -370,20 +377,17 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     return;
   }
 
-  // Price query mode: GET /service/:id?buyer=<pubkey> returns pricing info without 402
+  // Price query mode: GET /service/:id?buyer=<pubkey> returns pricing + reliability info
   const queryBuyer = req.query.buyer as string | undefined;
   if (queryBuyer && !req.headers['x-payment-proof']) {
-    const effectivePrice = registry.getEffectivePrice(id, queryBuyer);
-    const rep = registry.getReputation(queryBuyer);
+    const stats = registry.getReputation(queryBuyer);
     const buyerFed = federation.resolveByAddress(queryBuyer);
     res.json({
       service: id,
-      basePrice: service.price,
-      effectivePrice,
-      discount: service.price > 0 ? Math.round((1 - effectivePrice / service.price) * 100) : 0,
+      price: service.price,
       buyer: queryBuyer,
       buyerFederation: buyerFed?.stellar_address ?? null,
-      reputation: rep,
+      reliability: stats,
     });
     return;
   }
@@ -395,11 +399,11 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     // x402 flow: Return 402 Payment Required
     const rawBuyer = req.headers['x-buyer-address'];
     const buyerAddress: string = (Array.isArray(rawBuyer) ? rawBuyer[0] : rawBuyer) ?? 'unknown';
-    const effectivePrice = registry.getEffectivePrice(id, buyerAddress);
+    const price = registry.getPrice(id);
     const buyerFed = federation.resolveByAddress(buyerAddress);
 
     const requirement: PaymentRequirement = {
-      amount: effectivePrice,
+      amount: price,
       asset: 'native',
       network: 'stellar:testnet',
       recipient: RECIPIENT_ADDRESS,
@@ -429,7 +433,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
   const rawPaymentAmount = req.headers['x-payment-amount'];
   const paymentAmount = rawPaymentAmount
     ? parseFloat(Array.isArray(rawPaymentAmount) ? rawPaymentAmount[0] : rawPaymentAmount)
-    : registry.getEffectivePrice(id, buyerAddress);
+    : registry.getPrice(id);
 
   // Spending policy check → 403
   if (!registry.checkSpend(buyerAddress, paymentAmount)) {
@@ -687,7 +691,7 @@ app.get('/health', (_req: Request, res: Response) => {
     auth: { sep: '0010', serverKey: auth.serverPublicKey },
     protocols: ['x402', 'mpp'],
     features: [
-      'payment', 'path_payment', 'chain', 'spending_policy', 'reputation',
+      'payment', 'path_payment', 'chain', 'spending_policy', 'reliability_tracking',
       'time_bounds', 'federation', 'mpp', 'sep0010_auth', 'jwt_delivery',
     ],
   });

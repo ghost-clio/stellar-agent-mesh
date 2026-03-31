@@ -1,12 +1,12 @@
 # Stellar Agent Mesh
 
-Agent-to-agent economic infrastructure on Stellar. Agents discover services, negotiate prices, pay via x402 or MPP micropayments, build on-chain reputation, and enforce autonomous spending policies — all settled on Stellar in under 5 seconds.
+Agent-to-agent economic infrastructure on Stellar. Agents discover services, negotiate prices, pay via x402 or MPP micropayments, track service reliability, and enforce autonomous spending policies — all settled on Stellar in under 5 seconds.
 
 > **Stellar Hacks: Agents** submission — built by [ghost-clio](https://github.com/ghost-clio)
 
 ## The Problem
 
-AI agents need to pay each other for services. Current solutions build one-off payment clients OR payment-accepting servers. Nobody builds the **mesh** — infrastructure that makes any agent both buyer and seller simultaneously, with discovery, reputation, governance, and identity built in.
+AI agents need to pay each other for services. Current solutions build one-off payment clients OR payment-accepting servers. Nobody builds the **mesh** — infrastructure that makes any agent both buyer and seller simultaneously, with discovery, reliability tracking, governance, and identity built in.
 
 ## The Solution
 
@@ -15,8 +15,8 @@ Stellar Agent Mesh is standalone infrastructure. The gateway is the product — 
 ```
 ┌───────────────────────────────────────────────────────┐
 │              SOROBAN REGISTRY CONTRACT                 │
-│     Service listings · Reputation · Spending policies  │
-│     Discovery · Reputation-weighted pricing · Events   │
+│     Service listings · Reliability · Spending policies  │
+│     Discovery · Reliability tracking · Events   │
 └──────────────┬────────────────────┬───────────────────┘
                │                    │
     ┌──────────▼──────────┐  ┌─────▼────────────────┐
@@ -53,7 +53,7 @@ Stellar Agent Mesh is standalone infrastructure. The gateway is the product — 
 | **Web Auth** | Prove identity via signed Stellar challenge | SEP-0010 |
 | **JWT Delivery** | Atomic paid delivery protection | HMAC-signed tokens |
 | **Spending Policies** | Per-tx and daily limits with 403 rejection | Soroban contract |
-| **Reputation Pricing** | Success rate → automatic price discounts (up to 20%) | Soroban events |
+| **Reliability Tracking** | Per-agent success/failure log for service delivery | Soroban events |
 | **Time Bounds** | Replay protection (60s expiry on all txs) | Transaction time bounds |
 | **Chain Payments** | Multi-hop A→B→C sequential payments | Chained transactions |
 | **Persistent Logs** | Append-only JSONL transaction logs (survive restarts) | — |
@@ -91,22 +91,16 @@ MPP adds session management on top of x402's simplicity: sessions expire, can be
 }
 ```
 
-### Reputation-Weighted Pricing
+### Reliability Tracking
 
-Reputation isn't decorative — it directly affects economics:
+The gateway tracks transaction outcomes per agent — how many transactions attempted, how many succeeded. This is a failure log, not a rating system. Agents and consumers can query it to assess service reliability before transacting.
 
-```
-Fresh agent (0 txs):       base_price = 1.75 XLM
-Established (95% success): effective_price = 1.40 XLM (20% discount)
-After misbehavior (80%):   effective_price = 1.54 XLM (discount shrinks)
-```
-
-Formula: `effective_price = base_price × (100 - min(success_rate%, 20)) / 100`
-
-Query pricing for any agent:
 ```bash
-GET /service/sage-code-review?buyer=GABCDEF...
-→ { basePrice: 1.75, effectivePrice: 1.40, discount: 20, reputation: {txCount: 50, successCount: 48} }
+GET /stats/GABCDEF...
+→ { txCount: 50, successCount: 48, address: "GABCDEF..." }
+
+# 48/50 = 96% delivery rate — reliable service
+# 12/30 = 40% delivery rate — frequently fails, maybe avoid
 ```
 
 ### Federation (SEP-0002)
@@ -147,7 +141,7 @@ Daily spend tracking resets at midnight. Check and confirm are split — no doub
 | Component | Lines | Dependencies | Description |
 |-----------|-------|-------------|-------------|
 | `gateway/` | ~850 | express, @stellar/stellar-sdk, @x402/* | Payment infrastructure (zero axios) |
-| `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reputation |
+| `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reliability |
 | `skill/` | 5 tools | bash | OpenClaw AgentSkill |
 | [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | ~1100 | separate repo | Independent test client |
 
@@ -155,7 +149,7 @@ Daily spend tracking resets at midnight. Check and confirm are split — no doub
 
 **Contract ID:** `CDGABNPXUMVUFUDDUW7SW4YSSJKGZ7SA2P2UJ4DSXUV3KXTE6J2ZSGEI` (testnet)
 
-Functions: `register_service`, `discover`, `update_reputation`, `get_reputation`, `set_spending_policy`, `check_spend`, `get_effective_price`
+Functions: `register_service`, `discover`, `record_outcome`, `get_stats`, `set_spending_policy`, `check_spend`, `get_price`
 
 Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 
@@ -168,7 +162,7 @@ Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 | `/register` | POST | Register a service |
 | `/discover` | GET | Find services by capability |
 | `/service/:id` | GET | x402 payment flow (402→pay→200) |
-| `/service/:id?buyer=` | GET | Price query with reputation discount |
+| `/service/:id?buyer=` | GET | Price query + buyer reliability stats |
 | `/pay` | POST | Direct Stellar payment |
 | `/path-pay` | POST | Path payment via DEX |
 | `/chain` | POST | Multi-hop chain payment |
@@ -179,8 +173,8 @@ Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 | `/mpp/session` | POST | Create MPP payment session |
 | `/mpp/verify` | POST | Verify MPP payment → receipt |
 | `/delivery/token` | POST | Issue JWT delivery token |
-| `/reputation/:address` | GET | Query reputation |
-| `/reputation/penalize` | POST | Record misbehavior |
+| `/stats/:address` | GET | Query agent reliability stats |
+| `/stats/failure` | POST | Record service delivery failure |
 | `/policy` | POST | Set spending policy |
 | `/balance/:address` | GET | Check XLM/USDC balance |
 | `/txlog` | GET | Transaction audit log (persistent) |
@@ -188,7 +182,7 @@ Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
 
 ## Battle Harness (Separate Repo)
 
-The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) runs 4 AI agents (Nemotron 120B) autonomously transacting across 16 economic scenarios — normal payments, stress tests, malformed proofs, wallet drains, reputation arcs, and more. It communicates with this gateway exclusively via HTTP.
+The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) runs 4 AI agents (Nemotron 120B) autonomously transacting across 16 economic scenarios — normal payments, stress tests, malformed proofs, wallet drains, reliability tracking, and more. It communicates with this gateway exclusively via HTTP.
 
 Every transaction is logged to persistent JSONL files that survive restarts.
 
@@ -227,8 +221,8 @@ bash skill/scripts/register.sh my-svc G... 1.0 translation http://...
 # Pay via federation
 bash skill/scripts/pay.sh sage*mesh.agent 1.5
 
-# Check reputation
-bash skill/scripts/reputation.sh G...
+# Check reliability stats
+bash skill/scripts/stats.sh G...
 
 # Check balance
 bash skill/scripts/balance.sh G...
@@ -265,7 +259,7 @@ bash skill/scripts/balance.sh G...
 - Path payments via Stellar DEX
 - Multi-hop chain transactions (A→B→C)
 - Spending policies with daily tracking and 403 rejection
-- Reputation-weighted pricing (up to 20% discount)
+- Reliability tracking (success/failure stats per agent)
 - Soroban contract deployed and callable on testnet
 - 54 unit + integration tests passing
 - Persistent JSONL transaction logs (survive restarts)
