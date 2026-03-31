@@ -459,16 +459,21 @@ app.get('/service/:id', async (req: Request, res: Response) => {
 
   const start = Date.now();
 
-  // Forward to actual service endpoint
+  // Forward to actual service endpoint (native fetch, no axios)
   let responseData: unknown;
   try {
-    const axios = (await import('axios')).default;
     const query = req.query.q || req.query.query || 'default';
-    const serviceResponse = await axios.get(`${service.endpoint}?q=${encodeURIComponent(String(query))}`, {
-      timeout: 120000,
-      headers: { 'X-BUYER-ADDRESS': buyerAddress, 'X-PAYMENT-MEMO': paymentProof },
-    });
-    responseData = serviceResponse.data;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+    const serviceResponse = await fetch(
+      `${service.endpoint}?q=${encodeURIComponent(String(query))}`,
+      {
+        headers: { 'X-BUYER-ADDRESS': buyerAddress, 'X-PAYMENT-MEMO': paymentProof ?? '' },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+    responseData = await serviceResponse.json();
   } catch {
     responseData = {
       capability: service.capability,
