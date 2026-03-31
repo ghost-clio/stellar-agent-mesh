@@ -45,7 +45,7 @@ const MAX_TX_LOG = 10000;
 const txLog: TxLogEntry[] = [];
 
 function pushTxLog(entry: TxLogEntry): void {
-  pushTxLog(entry);
+  txLog.push(entry);
   if (txLog.length > MAX_TX_LOG) {
     txLog.splice(0, txLog.length - MAX_TX_LOG); // Keep last 10K
   }
@@ -429,7 +429,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     const axios = (await import('axios')).default;
     const query = req.query.q || req.query.query || 'default';
     const serviceResponse = await axios.get(`${service.endpoint}?q=${encodeURIComponent(String(query))}`, {
-      timeout: 30000,
+      timeout: 120000,
       headers: { 'X-BUYER-ADDRESS': buyerAddress, 'X-PAYMENT-MEMO': paymentProof },
     });
     responseData = serviceResponse.data;

@@ -59,7 +59,7 @@ async function callNemo(
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        timeout: 60000,
+        timeout: 120000,
       }
     );
 
