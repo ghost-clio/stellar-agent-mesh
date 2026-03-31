@@ -135,7 +135,27 @@ Check your Stellar balance. Do this before buying to avoid failed transactions.
 - **Minimum balance** = Stellar requires ~1 XLM minimum (can't spend below this)
 - **Available** = balance minus minimum = what you can actually spend
 
-### reputation
+### spending
+
+Check what an agent has spent, on which services, and when. This is the buyer-side view — what x402 doesn't give you out of the box.
+
+**When to use:** When a human asks "what has my agent been spending on?" When auditing agent costs. When checking if spending policy limits are being hit. When comparing spend across services.
+
+```bash
+./scripts/spending.sh <stellar_address>
+./scripts/spending.sh GBFQE547...
+```
+
+**Response includes:**
+- `totalSpent` — lifetime XLM spent
+- `byService` — per-service breakdown (count + amount)
+- `byDay` — daily spending totals
+- `recent` — last 10 transactions
+- `policy` — current spending limits (or "none")
+
+**How to use it:** If your human asks "what did you spend this month?" — call this endpoint with your own address. If they ask about a specific service — check `byService`. If they want to set limits based on what they see — use the `policy` tool.
+
+### reliability
 
 Check an agent's delivery reliability stats.
 
