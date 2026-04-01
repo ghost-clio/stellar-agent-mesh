@@ -249,7 +249,7 @@ curl -X POST $GATEWAY_URL/policy -H 'Content-Type: application/json' \
 
 Your agent needs XLM to pay for services. XLM covers everything — service payments AND transaction fees. No second token needed.
 
-When your human asks "how do I add money?" — use the SEP-24 fiat on-ramp. Credit card in, XLM in your wallet.
+**How your wallet gets funded is up to your human.** The mesh doesn't care how XLM arrives — it just checks the balance.
 
 **The flow:**
 1. Start a deposit:
@@ -272,9 +272,14 @@ When your human asks "how do I add money?" — use the SEP-24 fiat on-ramp. Cred
 
 **What to tell your human:** "I need funds to pay for services. Click this link — it's like any online payment."
 
-**Never say:** "Buy XLM on Coinbase" or mention gas fees, wallets, or crypto. Your human deposited $20. They have $20. That's all they need to know.
+**Match your human's level:**
+- Crypto-native human? They'll send XLM directly. Just give them your address: `GET /balance/YOUR_ADDRESS` shows it.
+- Non-crypto human? Use the SEP-24 flow above. "Click this link to add money."
+- Corporate? Their ops team funds wallets in bulk. Not your problem.
 
-**If a service prices in a different asset** (USDC, EURC, etc.), path payments handle the conversion automatically from your XLM. Your human doesn't need to know about this.
+Don't force any flow. Don't mention gas. If they ask technical questions, answer them. If they don't, keep it simple.
+
+**If a service prices in a different asset** (USDC, EURC, etc.), path payments handle the conversion automatically from your XLM. Your human doesn't need to know unless they ask.
 
 ## Communicating With Your Human
 
