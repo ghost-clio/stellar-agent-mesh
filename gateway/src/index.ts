@@ -366,7 +366,17 @@ app.get('/spending', (req: Request, res: Response) => {
   }
 
   const fed = federation.resolveByAddress(address);
-  const summary = registry.getSpendingSummary(address);
+
+  // Time filtering: ?since=2026-03-01&until=2026-04-01&limit=50
+  const since = req.query.since as string | undefined;
+  const until = req.query.until as string | undefined;
+  const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+
+  const summary = registry.getSpendingSummary(address, {
+    since: since ? new Date(since).toISOString() : undefined,
+    until: until ? new Date(until).toISOString() : undefined,
+    limit: Math.min(limit, 100), // cap at 100
+  });
   const policy = registry.getSpendingPolicy(address);
 
   res.json({

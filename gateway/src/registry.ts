@@ -108,19 +108,30 @@ class InMemoryRegistry {
     });
   }
 
-  getSpendingSummary(agent: string): {
+  getSpendingSummary(agent: string, options?: { since?: string; until?: string; limit?: number }): {
     totalSpent: number;
     txCount: number;
     byService: Record<string, { count: number; spent: number }>;
     byDay: Record<string, number>;
     recent: SpendRecord[];
+    period: { from: string | null; to: string | null };
   } {
-    const records = this.spendLedger.get(agent) ?? [];
+    const allRecords = this.spendLedger.get(agent) ?? [];
+
+    // Filter by time range
+    const since = options?.since ?? null;
+    const until = options?.until ?? null;
+    const filtered = allRecords.filter(r => {
+      if (since && r.timestamp < since) return false;
+      if (until && r.timestamp > until) return false;
+      return true;
+    });
+
     const byService: Record<string, { count: number; spent: number }> = {};
     const byDay: Record<string, number> = {};
     let totalSpent = 0;
 
-    for (const r of records) {
+    for (const r of filtered) {
       totalSpent += r.amount;
 
       if (!byService[r.serviceId]) {
@@ -133,12 +144,15 @@ class InMemoryRegistry {
       byDay[day] = parseFloat(((byDay[day] ?? 0) + r.amount).toFixed(7));
     }
 
+    const limit = options?.limit ?? 20;
+
     return {
       totalSpent: parseFloat(totalSpent.toFixed(7)),
-      txCount: records.length,
+      txCount: filtered.length,
       byService,
       byDay,
-      recent: records.slice(-10),
+      recent: filtered.slice(-limit),
+      period: { from: since, to: until },
     };
   }
 
