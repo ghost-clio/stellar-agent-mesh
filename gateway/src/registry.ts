@@ -52,16 +52,49 @@ class InMemoryRegistry {
     return this.reputations.get(agent) ?? { txCount: 0, successCount: 0 };
   }
 
+  // ── DEFAULT POLICY (fleet-wide) ──
+  private defaultPolicy: PolicyEntry | null = null;
+  private rateLimits: Map<string, { maxPerMin: number; timestamps: number[] }> = new Map();
+
+  setDefaultPolicy(perTxLimit: number, dailyLimit: number): void {
+    this.defaultPolicy = { perTxLimit, dailyLimit };
+  }
+
+  getDefaultPolicy(): PolicyEntry | null {
+    return this.defaultPolicy;
+  }
+
   setSpendingPolicy(agent: string, perTxLimit: number, dailyLimit: number): void {
     this.policies.set(agent, { perTxLimit, dailyLimit });
   }
 
+  // ── RATE LIMITING ──
+
+  setRateLimit(agent: string, maxPerMin: number): void {
+    const existing = this.rateLimits.get(agent);
+    this.rateLimits.set(agent, { maxPerMin, timestamps: existing?.timestamps ?? [] });
+  }
+
+  checkRateLimit(agent: string): boolean {
+    const rl = this.rateLimits.get(agent);
+    if (!rl) return true;
+    const now = Date.now();
+    // Prune timestamps older than 60s
+    rl.timestamps = rl.timestamps.filter(t => now - t < 60000);
+    return rl.timestamps.length < rl.maxPerMin;
+  }
+
+  recordRequest(agent: string): void {
+    const rl = this.rateLimits.get(agent);
+    if (rl) rl.timestamps.push(Date.now());
+  }
+
   /**
    * Check if a spend is within policy limits.
-   * NOTE: Does NOT update daily spend — call confirmSpend() after payment succeeds.
+   * Falls back to default policy if no agent-specific policy is set.
    */
   checkSpend(agent: string, amount: number): boolean {
-    const policy = this.policies.get(agent);
+    const policy = this.policies.get(agent) ?? this.defaultPolicy;
     if (!policy) {
       return true;
     }
@@ -213,6 +246,36 @@ class InMemoryRegistry {
       percent: alert.percent,
       webhook: alert.webhook,
     };
+  }
+
+  // ── ADMIN: Fleet overview ──
+
+  getAllAgentSpending(): {
+    agent: string;
+    todaySpent: number;
+    totalTxs: number;
+    policyStatus: 'custom' | 'default' | 'none';
+  }[] {
+    const today = new Date().toISOString().slice(0, 10);
+    const agents = new Set<string>();
+
+    // Collect all known agents from daily spend + ledger + policies
+    for (const key of this.dailySpend.keys()) agents.add(key);
+    for (const key of this.spendLedger.keys()) agents.add(key);
+    for (const key of this.policies.keys()) agents.add(key);
+
+    return [...agents].map(agent => {
+      const daily = this.dailySpend.get(agent);
+      const records = this.spendLedger.get(agent) ?? [];
+      const hasCustomPolicy = this.policies.has(agent);
+
+      return {
+        agent,
+        todaySpent: (daily && daily.date === today) ? parseFloat(daily.amount.toFixed(7)) : 0,
+        totalTxs: records.length,
+        policyStatus: (hasCustomPolicy ? 'custom' : (this.defaultPolicy ? 'default' : 'none')) as 'custom' | 'default' | 'none',
+      };
+    }).sort((a, b) => b.todaySpent - a.todaySpent); // highest spender first
   }
 
   get serviceCount(): number {

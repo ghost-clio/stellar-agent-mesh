@@ -462,7 +462,24 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     ? parseFloat(Array.isArray(rawPaymentAmount) ? rawPaymentAmount[0] : rawPaymentAmount)
     : registry.getPrice(id);
 
-  // Spending policy check → 403
+  // Rate limit check → 429
+  if (!registry.checkRateLimit(buyerAddress)) {
+    res.status(429).json({ error: 'rate_limit_exceeded', message: 'Too many requests per minute' });
+    return;
+  }
+  registry.recordRequest(buyerAddress);
+
+  // Blocklist check → 403
+  if (registry.isBlocked(buyerAddress, service.seller)) {
+    res.status(403).json({
+      error: 'seller_blocked',
+      seller: service.seller,
+      message: 'This seller is on your blocklist.',
+    });
+    return;
+  }
+
+  // Spending policy check → 403 (falls back to default policy if no custom one)
   if (!registry.checkSpend(buyerAddress, paymentAmount)) {
     pushTxLog({
       timestamp: new Date().toISOString(),
@@ -628,15 +645,36 @@ app.get('/balance/:address', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/txlog', (_req: Request, res: Response) => {
-  const payments = txLog.filter((t) => t.type === 'payment');
-  const pathPayments = txLog.filter((t) => t.type === 'path_payment');
-  const rejections = txLog.filter((t) => t.type === 'rejection');
-  const mppTxs = txLog.filter((t) => t.type === 'mpp');
+app.get('/txlog', (req: Request, res: Response) => {
+  const since = req.query.since as string | undefined;
+  const until = req.query.until as string | undefined;
+  const limit = req.query.limit ? Math.min(parseInt(String(req.query.limit), 10), 500) : 100;
+  const format = req.query.format as string | undefined;
+
+  let filtered = txLog;
+  if (since) filtered = filtered.filter(t => t.timestamp >= new Date(since).toISOString());
+  if (until) filtered = filtered.filter(t => t.timestamp <= new Date(until).toISOString());
+
+  const payments = filtered.filter((t) => t.type === 'payment');
+  const pathPayments = filtered.filter((t) => t.type === 'path_payment');
+  const rejections = filtered.filter((t) => t.type === 'rejection');
+  const mppTxs = filtered.filter((t) => t.type === 'mpp');
+
+  // CSV export for SIEM/compliance
+  if (format === 'csv') {
+    const header = 'timestamp,buyer,service,amount,txHash,verified,type,protocol\n';
+    const rows = filtered.slice(-limit).map(t =>
+      `${t.timestamp},${t.buyer},${t.service},${t.amount},${t.txHash},${t.verified},${t.type},${t.protocol ?? 'x402'}`
+    ).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=txlog.csv');
+    res.send(header + rows);
+    return;
+  }
 
   res.json({
-    count: txLog.length,
-    verified: txLog.filter((t) => t.verified).length,
+    count: filtered.length,
+    verified: filtered.filter((t) => t.verified).length,
     breakdown: {
       payments: payments.length,
       pathPayments: pathPayments.length,
@@ -644,11 +682,77 @@ app.get('/txlog', (_req: Request, res: Response) => {
       mpp: mppTxs.length,
     },
     protocols: {
-      x402: txLog.filter(t => t.protocol === 'x402' || !t.protocol).length,
+      x402: filtered.filter(t => t.protocol === 'x402' || !t.protocol).length,
       mpp: mppTxs.length,
     },
-    transactions: txLog.slice(-100),
+    period: { from: since ?? null, to: until ?? null },
+    transactions: filtered.slice(-limit),
   });
+});
+
+// ──────────────────────────────────────────
+// ADMIN — Fleet management (Dave's dashboard)
+// ──────────────────────────────────────────
+
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+
+function requireAdmin(req: Request, res: Response): boolean {
+  if (!ADMIN_KEY) {
+    res.status(501).json({ error: 'admin_not_configured', message: 'Set ADMIN_KEY env var to enable admin endpoints' });
+    return false;
+  }
+  const provided = req.headers['x-admin-key'] || req.query.key;
+  if (provided !== ADMIN_KEY) {
+    res.status(401).json({ error: 'unauthorized' });
+    return false;
+  }
+  return true;
+}
+
+// GET /admin/spending — All agents' spending, sorted by today's spend
+app.get('/admin/spending', async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+
+  const rate = await getXlmUsd();
+  const fleet = registry.getAllAgentSpending().map(a => ({
+    ...a,
+    federation: federation.resolveByAddress(a.agent)?.stellar_address ?? null,
+    todaySpentUsd: xlmToUsd(a.todaySpent, rate),
+  }));
+
+  const totalToday = fleet.reduce((sum, a) => sum + a.todaySpent, 0);
+
+  res.json({
+    agentCount: fleet.length,
+    totalTodaySpent: parseFloat(totalToday.toFixed(7)),
+    totalTodaySpentUsd: xlmToUsd(totalToday, rate),
+    defaultPolicy: registry.getDefaultPolicy() ?? 'none',
+    agents: fleet,
+  });
+});
+
+// POST /admin/default-policy — Set fleet-wide default spending policy
+app.post('/admin/default-policy', (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const { perTxLimit, dailyLimit } = req.body;
+  if (perTxLimit == null || dailyLimit == null) {
+    res.status(400).json({ error: 'missing perTxLimit or dailyLimit' });
+    return;
+  }
+  registry.setDefaultPolicy(perTxLimit, dailyLimit);
+  res.json({ defaultPolicy: { perTxLimit, dailyLimit }, message: 'Applies to all agents without a custom policy' });
+});
+
+// POST /admin/rate-limit — Set per-agent rate limit (max transactions per minute)
+app.post('/admin/rate-limit', (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const { agent, maxPerMinute } = req.body;
+  if (!agent || !maxPerMinute) {
+    res.status(400).json({ error: 'missing agent or maxPerMinute' });
+    return;
+  }
+  registry.setRateLimit(agent, maxPerMinute);
+  res.json({ agent, maxPerMinute });
 });
 
 app.get('/health', (_req: Request, res: Response) => {
@@ -663,7 +767,8 @@ app.get('/health', (_req: Request, res: Response) => {
     protocols: ['x402', 'mpp'],
     features: [
       'payment', 'path_payment', 'spending_policy', 'spending_dashboard', 'reliability_tracking',
-      'time_bounds', 'federation', 'mpp', 'sep0010_auth', 'jwt_delivery',
+      'time_bounds', 'federation', 'mpp', 'blocklist', 'spend_alerts', 'fiat_display',
+      'contacts', 'rate_limiting', 'admin_fleet_view', 'default_policies', 'csv_export',
     ],
   });
 });
@@ -678,7 +783,7 @@ app.listen(PORT, () => {
   console.log(`Stellar Agent Mesh Gateway running on port ${PORT}`);
   console.log(`Network: stellar:testnet | Recipient: ${RECIPIENT_ADDRESS}`);
   console.log(`Federation: ${FEDERATION_DOMAIN}`);
-  console.log(`Protocols: x402 + MPP | Features: 11`);
+  console.log(`Protocols: x402 + MPP | Features: 16 | Admin: ${ADMIN_KEY ? 'enabled' : 'disabled'}`);
 });
 
 export default app;
