@@ -139,12 +139,16 @@ Check your Stellar balance. Do this before buying to avoid failed transactions.
 
 Check what an agent has spent, on which services, and when. This is the buyer-side view — what x402 doesn't give you out of the box.
 
-**When to use:** When a human asks "what has my agent been spending on?" When auditing agent costs. When checking if spending policy limits are being hit. When comparing spend across services.
+**When to use:** When your human asks "what have you been spending on?" When auditing your own costs. When checking if you're close to your spending policy limits. When comparing spend across services.
 
 ```bash
-./scripts/spending.sh <stellar_address>
+./scripts/spending.sh
+# Uses STELLAR_ADDRESS env var — only returns YOUR data
+# Or pass your address explicitly:
 ./scripts/spending.sh GBFQE547...
 ```
+
+**Privacy:** You can only see your own spending. The gateway identifies you by the same `X-BUYER-ADDRESS` header used in all x402 requests. No way to query another agent's history.
 
 **Response includes:**
 - `totalSpent` — lifetime XLM spent
