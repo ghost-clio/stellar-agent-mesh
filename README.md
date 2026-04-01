@@ -1,261 +1,227 @@
 # Stellar Agent Mesh
 
-Agent-to-agent economic infrastructure on Stellar. Agents discover services, negotiate prices, pay via x402 or MPP micropayments, track service reliability, and enforce autonomous spending policies — all settled on Stellar in under 5 seconds.
+Agent-to-agent economic infrastructure on Stellar. Agents discover services, pay via x402 or MPP, enforce spending policies, and settle in under 5 seconds — all on real Stellar rails.
 
 > **Stellar Hacks: Agents** submission — built by [ghost-clio](https://github.com/ghost-clio)
 
 ## The Problem
 
-AI agents need to pay each other for services. Current solutions build one-off payment clients OR payment-accepting servers. Nobody builds the **mesh** — infrastructure that makes any agent both buyer and seller simultaneously, with discovery, reliability tracking, governance, and identity built in.
+AI agents need to pay each other for services. Current solutions build payment clients OR payment-accepting servers. Nobody builds the **mesh** — infrastructure where any agent is both buyer and seller, with discovery, governance, identity, and funding built in.
+
+The missing pieces aren't payments. They're everything around payments: How does Susan the tutor fund her agent with a credit card? How does Dave the CISO set spending limits across 87 agents? How does an agent know which sellers to avoid? How does anyone see what their agent spent last month?
 
 ## The Solution
 
-Stellar Agent Mesh is standalone infrastructure. The gateway is the product — a protocol-agnostic payment layer that any agent framework can plug into via HTTP. The included battle harness is an independent test client that proves the infrastructure works by running 4 AI agents autonomously for days, generating real Stellar testnet transactions across 16 different economic scenarios.
+Stellar Agent Mesh is a protocol-agnostic payment gateway that any agent framework can plug into via HTTP. One process handles service discovery, dual-protocol payments (x402 + MPP), federation identity, spending governance, fiat on-ramp, fleet management, and audit logging.
 
 ```
-┌───────────────────────────────────────────────────────┐
-│              SOROBAN REGISTRY CONTRACT                 │
-│     Service listings · Reliability · Spending policies  │
-│     Discovery · Reliability tracking · Events   │
-└──────────────┬────────────────────┬───────────────────┘
-               │                    │
-    ┌──────────▼──────────┐  ┌─────▼────────────────┐
-    │   EXPRESS GATEWAY    │  │  OPENCLAW SKILL       │
-    │   x402 + MPP dual    │  │  Install = instant    │
-    │   protocol support   │  │  Stellar economic     │
-    │   Federation (SEP-2) │  │  actor                │
-    │                      │  │                       │
-    │                      │  │                       │
-    │   Zero axios deps    │  │                       │
-    └──────────┬──────────┘  └────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│            SOROBAN REGISTRY CONTRACT              │
+│   Service listings · Reliability · Spending rules │
+└──────────────┬───────────────────────────────────┘
                │
-    ┌──────────▼────────────────────────────────────────┐
-    │    BATTLE HARNESS (independent test client)        │
-    │  Communicates with gateway exclusively via HTTP    │
-    │  Replaceable by any agent framework                │
-    │                                                    │
-    │  4 AI agents · 16 transaction patterns             │
-    │  Atlas (data) · Sage (code) · Pixel (creative)     │
-    │  Quant (math)                                      │
-    └───────────────────────────────────────────────────┘
+    ┌──────────▼──────────┐  ┌─────────────────────┐
+    │   EXPRESS GATEWAY    │  │  OPENCLAW SKILL      │
+    │                      │  │                      │
+    │   x402 + MPP dual    │  │  Agents install it   │
+    │   Federation (SEP-2) │  │  and become economic  │
+    │   SEP-24 fiat on-ramp│  │  actors instantly     │
+    │   Spending governance│  │                      │
+    │   Fleet admin (RBAC) │  │  Teaches agents HOW   │
+    │   Blocklist + alerts │  │  to think about money │
+    │   Fiat display (USD) │  │                      │
+    │   CSV audit export   │  │                      │
+    └──────────┬──────────┘  └─────────────────────┘
+               │
+    ┌──────────▼───────────────────────────────────┐
+    │    BATTLE HARNESS (separate repo)             │
+    │  4 AI agents · 16 economic scenarios          │
+    │  github.com/ghost-clio/stellar-agent-mesh-harness │
+    └──────────────────────────────────────────────┘
 ```
 
-**Architecture note:** The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) lives in a separate repository. It has zero cross-imports with the gateway — it talks to the gateway the same way any external agent would, via pure HTTP. This infrastructure stands alone.
+## Who This Is For
+
+**Susan** (non-technical) — Deposits $20 via credit card (SEP-24). Her agent pays for services. She sees spending in dollars. She says "block that vendor" and it's done. She never sees XLM, gas fees, or wallet addresses.
+
+**You** (developer) — Install the skill, point at a gateway, your agent can discover and pay for services. Send XLM directly. Price services in any Stellar asset. Path payments handle conversion.
+
+**Dave** (fleet operator) — Set default spending policies across all agents. Admin dashboard shows fleet-wide spending. Rate limits prevent rogue agents from hammering the gateway. CSV export feeds the SIEM.
 
 ## Features
 
-| Feature | Description | Stellar Primitive |
-|---------|-------------|-------------------|
-| **x402 Payments** | HTTP 402 → pay → verify → deliver | Native XLM payments |
-| **MPP Payments** | Machine Payments Protocol (session-based alternative) | Session lifecycle + Stellar settlement |
-| **Path Payments** | Buyer pays any asset, seller receives preferred | `pathPaymentStrictReceive` |
-| **Federation** | Human-readable addresses (`atlas*mesh.agent`) | SEP-0002 |
-| **Spending Policies** | Per-tx and daily limits with 403 rejection | Soroban contract |
-| **Reliability Tracking** | Per-agent success/failure log for service delivery | Soroban events |
-| **Time Bounds** | Replay protection (60s expiry on all txs) | Transaction time bounds |
-| **Persistent Logs** | Append-only JSONL transaction logs (survive restarts) | — |
+### Payments
+| Feature | Description |
+|---------|-------------|
+| **x402 Payments** | HTTP 402 → pay → verify → deliver. Native XLM settlement. |
+| **MPP Payments** | Session-based alternative. Expiry, cleanup, receipts. |
+| **Path Payments** | Pay in any asset, seller receives their preferred one. Stellar DEX handles conversion. |
+| **Asset-agnostic pricing** | Services declare price + asset (`native`, `USDC`, `EURC`, anything). |
+| **Contacts + Send** | `send alice 50` — look up by name, resolve federation, pay. Venmo-simple. |
 
-## How It Works
+### Identity
+| Feature | Description |
+|---------|-------------|
+| **Federation (SEP-2)** | `alice*devshop.agent` instead of `GABCDEF...` |
+| **Contact list** | Map human names to federation addresses. Local, never leaves your machine. |
 
-### Dual Protocol Support (x402 + MPP)
+### Governance
+| Feature | Description |
+|---------|-------------|
+| **Spending policies** | Per-tx and daily limits. 403 rejection with policy details. |
+| **Default policies** | Fleet-wide fallback for all agents without custom limits. |
+| **Blocklist** | Block bad sellers. Enforced at payment time. |
+| **Spend alerts** | Webhook fires at configurable % of daily budget (default 80%). |
+| **Rate limiting** | Per-agent max tx/minute. 429 on breach. |
 
-Both protocols are first-class. Every 402 response offers both options — agents choose their preferred flow:
+### Observability
+| Feature | Description |
+|---------|-------------|
+| **Spending dashboard** | Per-agent: total, by-service, by-day, recent txs. Header-authenticated — you only see your own data. |
+| **Fiat display** | All prices and spending in USD (CoinGecko, 5min cache). Optional — crypto natives see XLM. |
+| **Admin fleet view** | All agents sorted by today's spend. Admin-key protected. |
+| **Txlog with filtering** | `?since=2026-03-01&until=2026-04-01&format=csv` for compliance/SIEM. |
+| **Reliability tracking** | Per-agent success/failure counts. Honest failure log, not ratings. |
+| **Persistent JSONL logs** | Append-only, survive restarts. |
 
-```
-── x402 Flow ──                    ── MPP Flow ──
-GET /service/xyz                   POST /mpp/session
-← 402 {amount, recipient,         ← {sessionId, amount,
-        protocols: {x402, mpp}}           expiresAt}
-                                   
-Submit Stellar payment             Submit Stellar payment
-                                   
-GET /service/xyz                   POST /mpp/verify
-+ X-Payment-Proof: tx_hash        + {sessionId, txHash}
-← 200 + service data              ← receipt + service data
-```
+### Funding
+| Feature | Description |
+|---------|-------------|
+| **SEP-24 fiat on-ramp** | Credit card → XLM in your agent's wallet. Susan clicks a link, pays, done. |
+| **Direct deposit** | Send XLM on-chain to the agent's address. For crypto natives. |
+| **No forced flow** | The mesh doesn't care how XLM arrives. Balance > 0 = you can transact. |
 
-MPP adds session management on top of x402's simplicity: sessions expire, can be cleaned up, and provide receipts. Both settle on the same Stellar network.
+### Security
+| Feature | Description |
+|---------|-------------|
+| **Payment-based auth** | Signed Stellar transactions ARE proof of identity. No separate auth layer. |
+| **60s time bounds** | All txs expire in 60 seconds. Replay protection. |
+| **Zero axios** | Gateway uses native `fetch`. No supply chain attack surface. |
+| **Enforcement order** | Rate limit (429) → Blocklist (403) → Spending policy (403) → Payment |
 
-```json
-{
-  "amount": 0.50,
-  "asset": "native",
-  "network": "stellar:testnet",
-  "protocols": {
-    "x402": { "amount": 0.50, "recipient": "G...", "memo": "x402_abc123" },
-    "mpp": { "sessionEndpoint": "/mpp/session", "amount": 0.50 }
-  }
-}
-```
-
-### Reliability Tracking
-
-The gateway tracks transaction outcomes per agent — how many transactions attempted, how many succeeded. This is a failure log, not a rating system. Agents and consumers can query it to assess service reliability before transacting.
-
-```bash
-GET /stats/GABCDEF...
-→ { txCount: 50, successCount: 48, address: "GABCDEF..." }
-
-# 48/50 = 96% delivery rate — reliable service
-# 12/30 = 40% delivery rate — frequently fails, maybe avoid
-```
-
-### Federation (SEP-0002)
-
-Human-readable addresses for agents — like ENS for Stellar:
+## Payment Flow
 
 ```
-atlas*mesh.agent  →  GABCDEF...
-sage*mesh.agent   →  GHIJKL...
+Agent A needs code review from Agent B:
+
+1. GET /discover?capability=code-review
+   ← [{id: "sage-review", price: 1.75, asset: "native", priceUsd: "$0.18"}]
+
+2. GET /service/sage-review
+   ← 402 {amount: 1.75, asset: "native", recipient: "G...", memo: "x402_abc123"}
+
+3. Agent A submits Stellar payment (1.75 XLM)
+
+4. GET /service/sage-review  +  X-Payment-Proof: tx_hash
+   ← 200 {data: "Code review results...", txVerified: true}
 ```
 
-Pay by name instead of raw pubkey:
-```bash
-POST /pay { "destination": "sage*mesh.agent", "amount": "1.5" }
-```
+## Endpoints
 
-### Spending Dashboard
+### Services
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Register a service (price, asset, capability) |
+| GET | `/discover?capability=X` | Find services with prices + USD |
+| GET | `/service/:id` | x402 payment flow |
 
-Your agent's spending history, broken down by service and day. Only returns your own data (identified by `X-BUYER-ADDRESS` header).
+### Payments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/pay` | Direct XLM payment (supports federation names) |
+| POST | `/path-pay` | Path payment via Stellar DEX |
+| POST | `/mpp/session` | Create MPP session |
+| POST | `/mpp/verify` | Verify MPP payment |
 
-```bash
-GET /spending?since=2026-03-01&limit=50
-→ {
-    totalSpent: 47.32,
-    txCount: 28,
-    byService: { "sage-code-review": { count: 12, spent: 21.0 }, ... },
-    byDay: { "2026-03-31": 5.2, "2026-03-30": 8.1 },
-    recent: [ ... last 50 txs ... ],
-    policy: { perTxLimit: 5, dailyLimit: 50 }
-  }
-```
+### Identity
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/federation?q=name*domain` | Resolve federation address |
+| POST | `/federation/register` | Register a name |
 
-### Spending Policies
+### Governance
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/policy` | Set agent spending policy |
+| POST | `/blocklist` | Block a seller |
+| DELETE | `/blocklist` | Unblock a seller |
+| GET | `/blocklist` | Your blocked sellers |
+| POST | `/alert` | Set spend alert (threshold + webhook) |
+| GET | `/alert/check` | Check alert status |
 
-```
-Atlas: "Buy code review"  → $1.70  → ✅ Within policy
-Atlas: "Buy everything"   → $10K   → ❌ 403 spending_policy_violation
-```
+### Observability
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/spending` | Your spending history (time-filtered, USD) |
+| GET | `/stats/:address` | Agent reliability stats |
+| GET | `/balance/:address` | XLM balance |
+| GET | `/txlog` | Audit log (since/until/limit/csv) |
+| GET | `/health` | System status |
 
-Daily spend tracking resets at midnight. Check and confirm are split — no double-counting.
+### Funding
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/fund/anchors` | List SEP-24 fiat on-ramp providers |
+| GET | `/fund/info?anchor=X` | Anchor's supported assets |
+| POST | `/fund/deposit` | Start interactive deposit (returns URL) |
+| GET | `/fund/status` | Check deposit completion |
+
+### Admin (requires `X-ADMIN-KEY`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/admin/spending` | Fleet spending overview |
+| POST | `/admin/default-policy` | Set fleet-wide default policy |
+| POST | `/admin/rate-limit` | Set per-agent rate limit |
 
 ## Components
 
-| Component | Lines | Dependencies | Description |
-|-----------|-------|-------------|-------------|
-| `gateway/` | ~700 | express, @stellar/stellar-sdk, @x402/* | Payment infrastructure (zero axios) |
-| `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reliability |
-| `skill/` | 6 tools | bash | OpenClaw AgentSkill |
-| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | ~1100 | separate repo | Independent test client |
-
-### Soroban Contract
-
-**Contract ID:** `CDGABNPXUMVUFUDDUW7SW4YSSJKGZ7SA2P2UJ4DSXUV3KXTE6J2ZSGEI` (testnet)
-
-Functions: `register_service`, `discover`, `record_outcome`, `get_stats`, `set_spending_policy`, `check_spend`, `get_price`
-
-Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
-
-### Gateway Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/register` | POST | Register a service |
-| `/discover` | GET | Find services by capability (includes prices) |
-| `/service/:id` | GET | x402 payment flow (402→pay→200) |
-| `/service/:id?buyer=` | GET | Price query + buyer reliability stats |
-| `/pay` | POST | Direct Stellar payment |
-| `/path-pay` | POST | Path payment via DEX |
-| `/federation` | GET | Resolve federation addresses |
-| `/federation/register` | POST | Register federation name |
-| `/mpp/session` | POST | Create MPP payment session |
-| `/mpp/verify` | POST | Verify MPP payment → receipt |
-| `/spending` | GET | Your spending history (header-authenticated) |
-| `/stats/:address` | GET | Agent reliability stats |
-| `/stats/failure` | POST | Record service delivery failure |
-| `/policy` | POST | Set spending policy |
-| `/balance/:address` | GET | Check XLM/USDC balance |
-| `/txlog` | GET | Transaction audit log (persistent) |
-| `/health` | GET | System status |
-
-## Battle Harness (Separate Repo)
-
-The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) runs 4 AI agents (Nemotron 120B) autonomously transacting across 16 economic scenarios — normal payments, stress tests, malformed proofs, wallet drains, reliability tracking, and more. It communicates with this gateway exclusively via HTTP.
-
-Every transaction is logged to persistent JSONL files that survive restarts.
+| Component | Description |
+|-----------|-------------|
+| `gateway/` | Express server. x402 + MPP, federation, governance, funding. Zero axios. |
+| `contracts/registry/` | Soroban contract (226 lines Rust). On-chain registry + reliability. |
+| `skill/` | OpenClaw AgentSkill. Teaches agents the Stellar economic mental model. |
+| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | Separate repo. 4 AI agents, 16 patterns, proves the infra works. |
 
 ## Quick Start
 
 ```bash
-# 1. Clone
 git clone https://github.com/ghost-clio/stellar-agent-mesh.git
-cd stellar-agent-mesh
-
-# 2. Install
-cd gateway && npm install && cd ..
-
-# 3. Configure
-cp .env.example .env
-
-# 4. Run the gateway
-cd gateway && npx tsc && node dist/index.js
+cd stellar-agent-mesh/gateway
+npm install
+cp .env.example .env    # Configure Stellar keys
+npx tsc && node dist/index.js
 # Gateway running on http://localhost:3402
-
-# 5. (Optional) Run the battle harness
-# See: https://github.com/ghost-clio/stellar-agent-mesh-harness
 ```
 
 ## Why Stellar
 
-| | Stellar | Ethereum | Solana |
-|---|---------|----------|--------|
-| **Tx fee** | $0.00000003 | $0.50-50+ | $0.00025 |
-| **Finality** | < 5 sec | ~15 min | ~0.4 sec |
-| **Path payments** | ✅ Native | ❌ | ❌ |
-| **Federation** | ✅ SEP-0002 | ❌ | ❌ |
-| **Built for** | Payments | Compute | Speed |
+- **$0.00000003 per tx** — agents can transact millions of times
+- **< 5s finality** — real-time service delivery
+- **Path payments** — native multi-asset conversion via DEX
+- **Federation (SEP-2)** — human-readable addresses built into the protocol
+- **SEP-24** — fiat on-ramp standard, credit cards to XLM
+- **Built for payments** — not compute, not speed, payments
 
-## Cost
+## What's Working
 
-| Component | Cost |
-|-----------|------|
-| Nemotron 120B (OpenRouter) | $0 |
-| Stellar testnet (Friendbot) | $0 |
-| Gateway hosting | $0 |
-| **Total to run the full stack** | **$0** |
+- Full x402 + MPP dual protocol with real Stellar transactions
+- Federation, path payments, spending policies, blocklist, alerts, rate limiting
+- Fiat display (USD), admin fleet view, CSV audit export
+- SEP-24 fiat on-ramp integration
+- Asset-agnostic service pricing
+- Contacts + Venmo-style send by name
+- Soroban contract on testnet
+- 54 tests passing
+- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 patterns, 4 Nemotron agents, persistent tx logs
 
-## What's Working, What's Not
+## Limitations
 
-### Working ✅
-- Full x402 flow with real Stellar testnet transactions
-- MPP as a genuine alternative protocol (session lifecycle, expiry cleanup, receipts)
-- Federation address resolution (SEP-0002)
-- Path payments via Stellar DEX
-- Spending dashboard with time filtering
-- Spending policies with daily tracking and 403 rejection
-- Reliability tracking (success/failure stats per agent)
-- Soroban contract deployed and callable on testnet
-- 54 unit + integration tests passing
-- Persistent JSONL transaction logs (survive restarts)
-- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 automated patterns, 4 Nemotron agents
-
-### Limitations 📝
 - Federation is in-memory (production: stellar.toml + HTTPS callback)
-- MPP sessions are in-memory (production: Redis or persistent store)
-- Path payment tests use XLM→XLM (testnet lacks diverse liquidity pools)
-- Soroban contract interactions are gateway-mediated (direct SDK calls need additional wiring)
-- Testnet only (as recommended for hackathon)
-- Secret keys in harness request bodies (testnet necessity — production would use wallet signing)
-
-## Security Notes
-- Gateway has zero dependency on axios (uses native `fetch`)
-- Transaction amounts verified within 1% tolerance
-- All Stellar transactions use 60-second time bounds
-- Spending data is private — `/spending` only returns your own data via header auth
-- CORS is permissive (testnet scope — production would restrict origins)
-- Auth is payment-based: signed Stellar transactions ARE proof of identity. No separate auth layer needed.
+- MPP sessions are in-memory (production: Redis)
+- Path payment tests use XLM→XLM (testnet lacks diverse liquidity)
+- Soroban interactions are gateway-mediated
+- Secret keys in harness request bodies (testnet — production uses wallet signing)
 
 ## License
 
 Apache-2.0
-
