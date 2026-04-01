@@ -20,9 +20,10 @@ class InMemoryRegistry {
     seller: string,
     price: number,
     capability: string,
-    endpoint: string
+    endpoint: string,
+    asset: string = 'native',
   ): void {
-    this.services.set(id, { id, seller, price, capability, endpoint });
+    this.services.set(id, { id, seller, price, asset, capability, endpoint });
   }
 
   getService(id: string): ServiceEntry | undefined {

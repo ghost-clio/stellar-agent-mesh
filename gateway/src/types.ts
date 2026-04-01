@@ -2,6 +2,7 @@ export interface ServiceEntry {
   id: string;
   seller: string;
   price: number;
+  asset: string; // 'native' (XLM) | 'USDC' | any Stellar asset code
   capability: string;
   endpoint: string;
 }

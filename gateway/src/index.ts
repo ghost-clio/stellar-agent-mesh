@@ -281,12 +281,12 @@ app.post('/delivery/token', async (req: Request, res: Response) => {
 // ──────────────────────────────────────────
 
 app.post('/register', (req: Request, res: Response) => {
-  const { id, seller, price, capability, endpoint, name } = req.body;
+  const { id, seller, price, capability, endpoint, name, asset } = req.body;
   if (!id || !seller || price == null || !capability || !endpoint) {
     res.status(400).json({ error: 'missing required fields: id, seller, price, capability, endpoint' });
     return;
   }
-  registry.registerService(id, seller, price, capability, endpoint);
+  registry.registerService(id, seller, price, capability, endpoint, asset || 'native');
   // Auto-register federation address if name provided
   if (name) {
     federation.register(name, seller);
@@ -320,10 +320,12 @@ app.get('/discover', async (req: Request, res: Response) => {
   const enriched = ids.map(id => {
     const svc = registry.getService(id);
     const fed = svc ? federation.resolveByAddress(svc.seller) : null;
+    const isXlm = !svc?.asset || svc.asset === 'native';
     return {
       id, seller: svc?.seller, fedAddress: fed?.stellar_address,
       capability: svc?.capability, price: svc?.price,
-      priceUsd: svc?.price ? xlmToUsd(svc.price, rate) : 'N/A',
+      asset: svc?.asset ?? 'native',
+      priceUsd: isXlm && svc?.price ? xlmToUsd(svc.price, rate) : (svc?.asset === 'USDC' ? `$${svc.price}` : 'N/A'),
     };
   });
   res.json({ capability, services: enriched, xlmUsdRate: rate > 0 ? rate : 'unavailable' });
@@ -429,9 +431,11 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     const price = registry.getPrice(id);
     const buyerFed = federation.resolveByAddress(buyerAddress);
 
+    const service = registry.getService(id);
+    const serviceAsset = service?.asset ?? 'native';
     const requirement: PaymentRequirement = {
       amount: price,
-      asset: 'native',
+      asset: serviceAsset,
       network: 'stellar:testnet',
       recipient: RECIPIENT_ADDRESS,
       memo: `x402_${uuidv4().slice(0, 8)}`,
@@ -817,10 +821,12 @@ app.post('/fund/deposit', async (req: Request, res: Response) => {
     }
     const domain = KNOWN_ANCHORS[anchor] || anchor;
     const info = await fetchAnchorInfo(domain);
-    const result = await initiateDeposit(info.transferServer, asset || 'USDC', account, amount);
+    const depositAsset = asset || 'native';
+    const result = await initiateDeposit(info.transferServer, depositAsset, account, amount);
     res.json({
       ...result,
-      instructions: 'Send this URL to your human. They complete the deposit (credit card, bank transfer, etc). Funds arrive in the agent wallet automatically.',
+      asset: depositAsset,
+      instructions: 'Send this URL to your human. They pay with credit card or bank transfer. XLM arrives in the agent wallet — covers both services and gas fees.',
     });
   } catch (err: any) {
     res.status(502).json({ error: err.message });
