@@ -27,6 +27,30 @@ const RECIPIENT_ADDRESS =
 
 const startTime = Date.now();
 
+// ── Fiat price cache (XLM→USD) ──
+let xlmUsdPrice = 0;
+let xlmPriceUpdatedAt = 0;
+
+async function getXlmUsd(): Promise<number> {
+  // Cache for 5 minutes
+  if (xlmUsdPrice > 0 && Date.now() - xlmPriceUpdatedAt < 300000) {
+    return xlmUsdPrice;
+  }
+  try {
+    const resp = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd');
+    const data = await resp.json() as any;
+    xlmUsdPrice = data?.stellar?.usd ?? 0;
+    xlmPriceUpdatedAt = Date.now();
+  } catch {
+    // Keep stale price if fetch fails
+  }
+  return xlmUsdPrice;
+}
+
+function xlmToUsd(xlm: number, rate: number): string {
+  return rate > 0 ? `$${(xlm * rate).toFixed(2)}` : 'N/A';
+}
+
 // Transaction log for demo/audit
 interface TxLogEntry {
   timestamp: string;
@@ -285,20 +309,24 @@ app.post('/stats/failure', (req: Request, res: Response) => {
   res.json({ agent, reason, stats, federation: fed?.stellar_address });
 });
 
-app.get('/discover', (req: Request, res: Response) => {
+app.get('/discover', async (req: Request, res: Response) => {
   const capability = String(req.query.capability || '');
   if (!capability) {
     res.status(400).json({ error: 'missing query parameter: capability' });
     return;
   }
   const ids = registry.discover(capability);
-  // Enrich with federation addresses
+  const rate = await getXlmUsd();
   const enriched = ids.map(id => {
     const svc = registry.getService(id);
     const fed = svc ? federation.resolveByAddress(svc.seller) : null;
-    return { id, seller: svc?.seller, fedAddress: fed?.stellar_address, capability: svc?.capability, price: svc?.price };
+    return {
+      id, seller: svc?.seller, fedAddress: fed?.stellar_address,
+      capability: svc?.capability, price: svc?.price,
+      priceUsd: svc?.price ? xlmToUsd(svc.price, rate) : 'N/A',
+    };
   });
-  res.json({ capability, services: enriched });
+  res.json({ capability, services: enriched, xlmUsdRate: rate > 0 ? rate : 'unavailable' });
 });
 
 app.get('/stats/:address', (req: Request, res: Response) => {
@@ -318,7 +346,7 @@ app.get('/reputation/:address', (req: Request, res: Response) => {
 
 // GET /spending — Your own spending history. Address from X-BUYER-ADDRESS header.
 // No address param = no way to pull someone else's data.
-app.get('/spending', (req: Request, res: Response) => {
+app.get('/spending', async (req: Request, res: Response) => {
   const rawBuyer = req.headers['x-buyer-address'];
   const address = Array.isArray(rawBuyer) ? rawBuyer[0] : rawBuyer;
 
@@ -341,10 +369,14 @@ app.get('/spending', (req: Request, res: Response) => {
   });
   const policy = registry.getSpendingPolicy(address);
 
+  const rate = await getXlmUsd();
+
   res.json({
     agent: address,
     federation: fed?.stellar_address ?? null,
     ...summary,
+    totalSpentUsd: xlmToUsd(summary.totalSpent, rate),
+    xlmUsdRate: rate > 0 ? rate : 'unavailable',
     policy: policy ?? 'none',
   });
 });

@@ -12,6 +12,8 @@ class InMemoryRegistry {
   private policies: Map<string, PolicyEntry> = new Map();
   private dailySpend: Map<string, { amount: number; date: string }> = new Map();
   private spendLedger: Map<string, SpendRecord[]> = new Map();
+  private blocklist: Map<string, Set<string>> = new Map(); // buyer → set of blocked sellers
+  private spendAlerts: Map<string, { threshold: number; webhook?: string; percent: number }> = new Map();
 
   registerService(
     id: string,
@@ -163,6 +165,54 @@ class InMemoryRegistry {
 
   getSpendingPolicy(agent: string): PolicyEntry | null {
     return this.policies.get(agent) ?? null;
+  }
+
+  // ── BLOCKLIST ──
+
+  blockSeller(buyer: string, seller: string): void {
+    if (!this.blocklist.has(buyer)) {
+      this.blocklist.set(buyer, new Set());
+    }
+    this.blocklist.get(buyer)!.add(seller);
+  }
+
+  unblockSeller(buyer: string, seller: string): void {
+    this.blocklist.get(buyer)?.delete(seller);
+  }
+
+  isBlocked(buyer: string, seller: string): boolean {
+    return this.blocklist.get(buyer)?.has(seller) ?? false;
+  }
+
+  getBlocklist(buyer: string): string[] {
+    return [...(this.blocklist.get(buyer) ?? [])];
+  }
+
+  // ── SPEND ALERTS ──
+
+  setSpendAlert(agent: string, dailyLimit: number, alertPercent: number = 80, webhook?: string): void {
+    this.spendAlerts.set(agent, { threshold: dailyLimit, percent: alertPercent, webhook });
+  }
+
+  /**
+   * Check if spending alert should fire. Returns alert info or null.
+   */
+  checkSpendAlert(agent: string): { fired: boolean; spent: number; threshold: number; percent: number; webhook?: string } | null {
+    const alert = this.spendAlerts.get(agent);
+    if (!alert) return null;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const daily = this.dailySpend.get(agent);
+    const spent = (daily && daily.date === today) ? daily.amount : 0;
+    const triggerAt = alert.threshold * (alert.percent / 100);
+
+    return {
+      fired: spent >= triggerAt,
+      spent: parseFloat(spent.toFixed(7)),
+      threshold: alert.threshold,
+      percent: alert.percent,
+      webhook: alert.webhook,
+    };
   }
 
   get serviceCount(): number {

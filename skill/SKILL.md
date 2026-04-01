@@ -245,6 +245,42 @@ curl -X POST $GATEWAY_URL/policy -H 'Content-Type: application/json' \
   -d '{"agent":"G...","perTxLimit":5,"dailyLimit":50}'
 ```
 
+## Communicating With Your Human
+
+Your human probably doesn't know what XLM is. When reporting spending or prices:
+
+**Do this:**
+- "You spent $2.10 this week, mostly on code analysis (12 calls)"
+- "That service costs about $0.05 per call"
+- "You're at 80% of your daily $5 budget"
+
+**Not this:**
+- "byService: { sage-code-review: { count: 12, spent: 21.0 } }"
+- "The service costs 0.49 XLM"
+- "Policy check returned 403"
+
+The `/spending` and `/discover` endpoints include USD conversions (`totalSpentUsd`, `priceUsd`). Use those when talking to your human.
+
+If your human says "block that provider" or "never buy from them again," use the blocklist:
+```bash
+# Block a bad seller
+curl -X POST $GATEWAY_URL/blocklist -H 'Content-Type: application/json' \
+  -d '{"buyer":"YOUR_ADDRESS","seller":"BAD_SELLER_ADDRESS"}'
+
+# Check your blocklist
+curl -H "X-BUYER-ADDRESS: YOUR_ADDRESS" $GATEWAY_URL/blocklist
+```
+
+If your human wants budget alerts, set one up:
+```bash
+# Alert when 80% of daily budget is used
+curl -X POST $GATEWAY_URL/alert -H 'Content-Type: application/json' \
+  -d '{"agent":"YOUR_ADDRESS","dailyLimit":50,"alertPercent":80,"webhook":"https://your-webhook.url"}'
+
+# Check alert status manually
+curl -H "X-BUYER-ADDRESS: YOUR_ADDRESS" $GATEWAY_URL/alert/check
+```
+
 ## Error Handling
 
 | HTTP Status | Meaning | What to Do |
