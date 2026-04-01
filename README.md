@@ -84,6 +84,13 @@ Stellar Agent Mesh is a protocol-agnostic payment gateway that any agent framewo
 | **Reliability tracking** | Per-agent success/failure counts. Honest failure log, not ratings. |
 | **Persistent JSONL logs** | Append-only, survive restarts. |
 
+### Escrow (Pay-on-Completion)
+| Feature | Description |
+|---------|-------------|
+| **Claimable balance escrow** | Lock XLM until service is delivered. Seller claims after delivery, buyer refunds after timeout. Uses Stellar's native claimable balances — no smart contract needed. |
+| **Time-bounded** | Buyer sets timeout (default 1 hour). After timeout, buyer can reclaim if service wasn't delivered. |
+| **Tracked** | All escrows logged to txlog with `escrow_create`, `escrow_claim`, `escrow_refund` types. |
+
 ### Funding
 | Feature | Description |
 |---------|-------------|
@@ -157,6 +164,15 @@ Agent A needs code review from Agent B:
 | GET | `/balance/:address` | XLM balance |
 | GET | `/txlog` | Audit log (since/until/limit/csv) |
 | GET | `/health` | System status |
+
+### Escrow
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/escrow/create` | Lock funds in claimable balance |
+| POST | `/escrow/claim` | Seller claims after delivery |
+| POST | `/escrow/refund` | Buyer reclaims after timeout |
+| GET | `/escrow/:id` | Check escrow status |
+| GET | `/escrows` | List escrows (filter by buyer/seller/status) |
 
 ### Funding
 | Method | Endpoint | Description |

@@ -245,6 +245,40 @@ curl -X POST $GATEWAY_URL/policy -H 'Content-Type: application/json' \
   -d '{"agent":"G...","perTxLimit":5,"dailyLimit":50}'
 ```
 
+## Escrow — Pay Only When the Job Is Done
+
+For high-value or untrusted services, use escrow instead of direct payment. The buyer locks funds, the seller delivers, then claims payment. If the seller ghosts, the buyer gets their money back after timeout.
+
+**When to use escrow:**
+- First time buying from an unknown seller
+- Expensive services (> your comfort threshold)
+- Services that take time to deliver (code review, image generation)
+- Your human explicitly says "don't pay until it's done"
+
+**When NOT to use escrow:**
+- Cheap, instant services (just use x402)
+- Trusted sellers you've bought from many times
+
+**The flow:**
+```bash
+# 1. Lock funds (1 hour timeout)
+curl -X POST $GATEWAY_URL/escrow/create \
+  -H 'Content-Type: application/json' \
+  -d '{"buyerSecret":"S...","seller":"G...","amount":"5","serviceId":"sage-code-review","timeoutSeconds":3600}'
+
+# 2. Wait for service delivery...
+
+# 3. Seller claims after delivering
+curl -X POST $GATEWAY_URL/escrow/claim \
+  -d '{"sellerSecret":"S...","balanceId":"00000..."}'
+
+# OR: Buyer refunds if service never delivered (only works after timeout)
+curl -X POST $GATEWAY_URL/escrow/refund \
+  -d '{"buyerSecret":"S...","balanceId":"00000..."}'
+```
+
+**What to tell your human:** "I'm holding the payment in escrow until the work is done. If they don't deliver, you get your money back."
+
 ## Funding Your Wallet
 
 Your agent needs XLM to pay for services. XLM covers everything — service payments AND transaction fees. No second token needed.

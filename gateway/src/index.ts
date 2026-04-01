@@ -72,8 +72,8 @@ interface TxLogEntry {
   amount: number;
   txHash: string;
   verified: boolean;
-  type: 'payment' | 'path_payment' | 'rejection' | 'mpp';
-  protocol?: 'x402' | 'mpp';
+  type: 'payment' | 'path_payment' | 'rejection' | 'mpp' | 'escrow_create' | 'escrow_claim' | 'escrow_refund';
+  protocol?: 'x402' | 'mpp' | 'escrow';
   details?: Record<string, unknown>;
 }
 
@@ -816,8 +816,126 @@ app.get('/health', (_req: Request, res: Response) => {
       'payment', 'path_payment', 'spending_policy', 'spending_dashboard', 'reliability_tracking',
       'time_bounds', 'federation', 'mpp', 'blocklist', 'spend_alerts', 'fiat_display',
       'contacts', 'rate_limiting', 'admin_fleet_view', 'default_policies', 'csv_export',
+      'escrow', 'claimable_balance',
     ],
   });
+});
+
+// ──────────────────────────────────────────
+// ESCROW — Claimable balance pay-on-completion
+// ──────────────────────────────────────────
+
+import {
+  createEscrow, claimEscrow, refundEscrow,
+  getEscrow, listEscrows,
+} from './escrow.js';
+
+// POST /escrow/create — Lock funds until service is delivered
+app.post('/escrow/create', async (req: Request, res: Response) => {
+  const { buyerSecret, seller, amount, serviceId, timeoutSeconds } = req.body;
+  if (!buyerSecret || !seller || !amount || !serviceId) {
+    res.status(400).json({
+      error: 'missing fields',
+      required: { buyerSecret: 'Stellar secret key', seller: 'Stellar public key', amount: 'XLM amount', serviceId: 'service identifier' },
+      optional: { timeoutSeconds: 'refund timeout (default 3600 = 1 hour)' },
+    });
+    return;
+  }
+  try {
+    const result = await createEscrow(buyerSecret, seller, String(amount), serviceId, timeoutSeconds ?? 3600);
+    pushTxLog({
+      timestamp: new Date().toISOString(),
+      type: 'escrow_create',
+      buyer: result.buyer,
+      service: serviceId,
+      amount: parseFloat(String(amount)),
+      txHash: result.txHash,
+      verified: true,
+      protocol: 'escrow',
+    });
+    const rate = await getXlmUsd();
+    res.status(201).json({
+      ...result,
+      amountUsd: xlmToUsd(parseFloat(String(amount)), rate),
+      instructions: 'Funds locked. Seller claims after delivery. Buyer can refund after timeout.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'escrow_creation_failed' });
+  }
+});
+
+// POST /escrow/claim — Seller claims funds after delivering service
+app.post('/escrow/claim', async (req: Request, res: Response) => {
+  const { sellerSecret, balanceId } = req.body;
+  if (!sellerSecret || !balanceId) {
+    res.status(400).json({ error: 'missing sellerSecret or balanceId' });
+    return;
+  }
+  try {
+    const result = await claimEscrow(sellerSecret, balanceId);
+    pushTxLog({
+      timestamp: new Date().toISOString(),
+      type: 'escrow_claim',
+      buyer: result.claimedBy,
+      service: 'escrow',
+      amount: parseFloat(result.amount),
+      txHash: result.txHash,
+      verified: true,
+      protocol: 'escrow',
+    });
+    res.json({ ...result, message: 'Funds claimed successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'claim_failed' });
+  }
+});
+
+// POST /escrow/refund — Buyer reclaims funds after timeout (service not delivered)
+app.post('/escrow/refund', async (req: Request, res: Response) => {
+  const { buyerSecret, balanceId } = req.body;
+  if (!buyerSecret || !balanceId) {
+    res.status(400).json({ error: 'missing buyerSecret or balanceId' });
+    return;
+  }
+  try {
+    const result = await refundEscrow(buyerSecret, balanceId);
+    pushTxLog({
+      timestamp: new Date().toISOString(),
+      type: 'escrow_refund',
+      buyer: result.claimedBy,
+      service: 'escrow',
+      amount: parseFloat(result.amount),
+      txHash: result.txHash,
+      verified: true,
+      protocol: 'escrow',
+    });
+    res.json({ ...result, message: 'Funds refunded.' });
+  } catch (err: any) {
+    if (err.message?.includes('CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED')) {
+      res.status(403).json({ error: 'timeout_not_reached', message: 'You can only refund after the timeout period.' });
+    } else {
+      res.status(500).json({ error: err.message || 'refund_failed' });
+    }
+  }
+});
+
+// GET /escrow/:id — Check escrow status
+app.get('/escrow/:id', (req: Request, res: Response) => {
+  const escrow = getEscrow(String(req.params.id));
+  if (!escrow) {
+    res.status(404).json({ error: 'escrow_not_found' });
+    return;
+  }
+  res.json(escrow);
+});
+
+// GET /escrows — List escrows (filter by buyer/seller/status)
+app.get('/escrows', (req: Request, res: Response) => {
+  const filter = {
+    buyer: req.query.buyer as string | undefined,
+    seller: req.query.seller as string | undefined,
+    status: req.query.status as string | undefined,
+  };
+  res.json(listEscrows(filter));
 });
 
 // ──────────────────────────────────────────
