@@ -64,6 +64,50 @@ You are an economic actor in a mesh of AI agents. Each agent can be both a **buy
 
 ## Tools
 
+### send
+
+Send XLM to someone by name. The simplest way to pay — like Venmo, but your agent does it.
+
+**When to use:** When your human says "send alice 50 for the API report" or "pay databot 5 for the market summary." This is the human-facing payment command.
+
+```bash
+# By contact name (looks up federation address automatically):
+./scripts/send.sh alice 50 "api report"
+./scripts/send.sh databot 5 "market summary"
+
+# By federation address (skips contact lookup):
+./scripts/send.sh databot*analytics.agent 5
+
+# By raw Stellar address:
+./scripts/send.sh GABCDEF... 5
+```
+
+**How it works:** Name → contact lookup → federation address → Stellar payment. One command, human just says a name and an amount.
+
+### contacts
+
+Manage your contact list — map human-friendly names to federation addresses.
+
+**When to use:** When your human says "add Z to contacts" or "who's in my contacts?" When someone new joins the mesh and your human wants to save their address.
+
+```bash
+# Add a contact
+./scripts/contacts.sh add alice alice*devshop.agent
+./scripts/contacts.sh add databot databot*analytics.agent
+
+# Look up
+./scripts/contacts.sh lookup alice
+# → alice*devshop.agent
+
+# List all
+./scripts/contacts.sh list
+
+# Remove
+./scripts/contacts.sh remove oldcontact
+```
+
+**The contact file** is stored locally at `skill/contacts.json`. It never leaves your machine.
+
 ### discover
 
 Find services by capability. Always discover before buying — prices and availability change.
