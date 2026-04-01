@@ -773,6 +773,78 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// ──────────────────────────────────────────
+// SEP-24 — Fiat on-ramp ("add money with your credit card")
+// ──────────────────────────────────────────
+
+import {
+  KNOWN_ANCHORS, fetchAnchorInfo, getAnchorAssets,
+  initiateDeposit, checkTransaction,
+} from './sep24.js';
+
+// GET /fund/anchors — List known fiat on-ramp providers
+app.get('/fund/anchors', (_req: Request, res: Response) => {
+  res.json({
+    anchors: Object.entries(KNOWN_ANCHORS).map(([name, domain]) => ({ name, domain })),
+    message: 'Use POST /fund/deposit to start a deposit with any anchor',
+  });
+});
+
+// GET /fund/info?anchor=mykobo — Get anchor's supported assets and methods
+app.get('/fund/info', async (req: Request, res: Response) => {
+  try {
+    const anchorName = String(req.query.anchor || '');
+    const domain = KNOWN_ANCHORS[anchorName] || anchorName;
+    if (!domain) {
+      res.status(400).json({ error: 'missing anchor param', knownAnchors: Object.keys(KNOWN_ANCHORS) });
+      return;
+    }
+    const info = await fetchAnchorInfo(domain);
+    const assets = await getAnchorAssets(info.transferServer);
+    res.json({ anchor: info, assets });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// POST /fund/deposit — Start an interactive deposit (returns URL for human)
+app.post('/fund/deposit', async (req: Request, res: Response) => {
+  try {
+    const { anchor, asset, account, amount } = req.body;
+    if (!anchor || !account) {
+      res.status(400).json({ error: 'missing anchor or account', example: { anchor: 'mykobo', asset: 'USDC', account: 'GABCDEF...', amount: '20' } });
+      return;
+    }
+    const domain = KNOWN_ANCHORS[anchor] || anchor;
+    const info = await fetchAnchorInfo(domain);
+    const result = await initiateDeposit(info.transferServer, asset || 'USDC', account, amount);
+    res.json({
+      ...result,
+      instructions: 'Send this URL to your human. They complete the deposit (credit card, bank transfer, etc). Funds arrive in the agent wallet automatically.',
+    });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /fund/status?anchor=mykobo&id=txn123 — Check deposit status
+app.get('/fund/status', async (req: Request, res: Response) => {
+  try {
+    const anchorName = String(req.query.anchor || '');
+    const txId = String(req.query.id || '');
+    if (!anchorName || !txId) {
+      res.status(400).json({ error: 'missing anchor or id' });
+      return;
+    }
+    const domain = KNOWN_ANCHORS[anchorName] || anchorName;
+    const info = await fetchAnchorInfo(domain);
+    const status = await checkTransaction(info.transferServer, txId);
+    res.json(status);
+  } catch (err: any) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // Error handling
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(`[ERROR] ${err.message}`);

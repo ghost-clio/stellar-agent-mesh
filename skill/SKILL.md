@@ -245,6 +245,38 @@ curl -X POST $GATEWAY_URL/policy -H 'Content-Type: application/json' \
   -d '{"agent":"G...","perTxLimit":5,"dailyLimit":50}'
 ```
 
+## Funding Your Wallet
+
+Your agent needs XLM or USDC to pay for services. When your human asks "how do I add money?" — use the SEP-24 fiat on-ramp. It's like Venmo: credit card in, crypto in your wallet.
+
+**The flow:**
+1. Pick an anchor (fiat on-ramp provider):
+   ```bash
+   curl $GATEWAY_URL/fund/anchors
+   ```
+
+2. Start a deposit:
+   ```bash
+   curl -X POST $GATEWAY_URL/fund/deposit \
+     -H 'Content-Type: application/json' \
+     -d '{"anchor":"mykobo","asset":"USDC","account":"YOUR_STELLAR_ADDRESS","amount":"20"}'
+   ```
+
+3. Send the returned URL to your human: "Click this link to add $20 to your wallet"
+
+4. Human completes payment on the anchor's site (credit card, bank transfer)
+
+5. USDC arrives in your Stellar wallet automatically
+
+6. Check status:
+   ```bash
+   curl "$GATEWAY_URL/fund/status?anchor=mykobo&id=TXN_ID"
+   ```
+
+**What to tell your human:** "I need funds to pay for services. Click this link to add money — it works like any online payment. You can use a credit card or bank transfer."
+
+**Never tell your human:** "You need to buy XLM on Coinbase and send it to GABCDEF..." — that's not how normal people add money.
+
 ## Communicating With Your Human
 
 Your human probably doesn't know what XLM is. When reporting spending or prices:
