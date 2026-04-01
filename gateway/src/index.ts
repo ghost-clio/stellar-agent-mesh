@@ -9,7 +9,7 @@ import { ExactStellarScheme } from '@x402/stellar/exact/server';
 import registry from './registry.js';
 import federation, { FEDERATION_DOMAIN } from './federation.js';
 import mpp from './mpp.js';
-import auth, { JwtPayload } from './auth.js';
+// auth.ts still exists but SEP-0010 endpoints removed — payments ARE the auth
 import { PaymentRequirement, ServiceResult } from './types.js';
 import {
   submitPayment,
@@ -36,7 +36,7 @@ interface TxLogEntry {
   amount: number;
   txHash: string;
   verified: boolean;
-  type: 'payment' | 'path_payment' | 'chain' | 'rejection' | 'mpp';
+  type: 'payment' | 'path_payment' | 'rejection' | 'mpp';
   protocol?: 'x402' | 'mpp';
   details?: Record<string, unknown>;
 }
@@ -160,44 +160,6 @@ app.post('/federation/register', (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────
-// SEP-0010 WEB AUTH — Agent identity verification
-// ──────────────────────────────────────────
-
-// GET /auth/challenge?account=G...
-app.get('/auth/challenge', (req: Request, res: Response) => {
-  const account = String(req.query.account || '');
-  if (!account) {
-    res.status(400).json({ error: 'missing account parameter' });
-    return;
-  }
-  try {
-    const challenge = auth.createChallenge(account);
-    res.json(challenge);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /auth/verify — Submit signed challenge, receive JWT
-app.post('/auth/verify', (req: Request, res: Response) => {
-  const { transaction } = req.body;
-  if (!transaction) {
-    res.status(400).json({ error: 'missing signed transaction' });
-    return;
-  }
-  const result = auth.verifyChallenge(transaction);
-  if (!result) {
-    res.status(401).json({ error: 'invalid_challenge', message: 'Signature verification failed or challenge expired' });
-    return;
-  }
-  res.json({ token: result.token, address: result.address, expiresIn: 3600 });
-});
-
-// GET /auth/info — Server public key for challenge verification
-app.get('/auth/info', (_req: Request, res: Response) => {
-  res.json({ serverPublicKey: auth.serverPublicKey, domain: FEDERATION_DOMAIN, sep: '0010' });
-});
-
 // ──────────────────────────────────────────
 // MPP — Machine Payments Protocol (alternative to x402)
 // ──────────────────────────────────────────
@@ -611,62 +573,8 @@ app.post('/path-pay', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/chain', async (req: Request, res: Response) => {
-  const { hops } = req.body;
-  if (!hops || !Array.isArray(hops) || hops.length < 2) {
-    res.status(400).json({ error: 'chain requires at least 2 hops' });
-    return;
-  }
-
-  const results: any[] = [];
-  const chainId = uuidv4().slice(0, 8);
-  let totalLatency = 0;
-
-  for (let i = 0; i < hops.length; i++) {
-    const hop = hops[i];
-    const hopMemo = `chain_${chainId}_${i}`;
-    const start = Date.now();
-
-    // Resolve federation addresses in chain hops
-    let destAddress = hop.destination;
-    if (destAddress.includes('*')) {
-      const fed = federation.resolveByName(destAddress);
-      if (fed) destAddress = fed.account_id;
-    }
-
-    try {
-      const payResult = await submitPayment(hop.senderSecret, destAddress, String(hop.amount), hopMemo);
-      const latency = Date.now() - start;
-      totalLatency += latency;
-
-      results.push({
-        hop: i + 1, success: true, txHash: payResult.hash,
-        from: payResult.from, to: payResult.to, amount: hop.amount, latencyMs: latency,
-      });
-
-      pushTxLog({
-        timestamp: new Date().toISOString(),
-        buyer: payResult.from,
-        service: hop.serviceId || `chain_hop_${i}`,
-        amount: parseFloat(hop.amount),
-        txHash: payResult.hash,
-        verified: true,
-        type: 'chain',
-        protocol: 'x402',
-        details: { chainId, hop: i + 1, totalHops: hops.length },
-      });
-    } catch (err: any) {
-      results.push({ hop: i + 1, success: false, error: err.message, latencyMs: Date.now() - start });
-      break;
-    }
-  }
-
-  res.json({
-    chainId, hops: results.length, totalHops: hops.length,
-    success: results.every((r) => r.success),
-    totalLatencyMs: totalLatency, results,
-  });
-});
+// Chain payments removed — in practice, agents buy services independently.
+// If a marketplace needs multi-hop orchestration, it runs its own gateway.
 
 // ──────────────────────────────────────────
 // QUERY ENDPOINTS
@@ -691,7 +599,6 @@ app.get('/balance/:address', async (req: Request, res: Response) => {
 app.get('/txlog', (_req: Request, res: Response) => {
   const payments = txLog.filter((t) => t.type === 'payment');
   const pathPayments = txLog.filter((t) => t.type === 'path_payment');
-  const chains = txLog.filter((t) => t.type === 'chain');
   const rejections = txLog.filter((t) => t.type === 'rejection');
   const mppTxs = txLog.filter((t) => t.type === 'mpp');
 
@@ -701,7 +608,6 @@ app.get('/txlog', (_req: Request, res: Response) => {
     breakdown: {
       payments: payments.length,
       pathPayments: pathPayments.length,
-      chains: chains.length,
       rejections: rejections.length,
       mpp: mppTxs.length,
     },
@@ -721,10 +627,10 @@ app.get('/health', (_req: Request, res: Response) => {
     uptime: Math.floor((Date.now() - startTime) / 1000),
     network: 'stellar:testnet',
     federation: { domain: FEDERATION_DOMAIN, entries: federation.count },
-    auth: { sep: '0010', serverKey: auth.serverPublicKey },
+    auth: 'payment-based (no separate auth layer — signed Stellar txs ARE proof of identity)',
     protocols: ['x402', 'mpp'],
     features: [
-      'payment', 'path_payment', 'chain', 'spending_policy', 'reliability_tracking',
+      'payment', 'path_payment', 'spending_policy', 'spending_dashboard', 'reliability_tracking',
       'time_bounds', 'federation', 'mpp', 'sep0010_auth', 'jwt_delivery',
     ],
   });
@@ -739,7 +645,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(PORT, () => {
   console.log(`Stellar Agent Mesh Gateway running on port ${PORT}`);
   console.log(`Network: stellar:testnet | Recipient: ${RECIPIENT_ADDRESS}`);
-  console.log(`Federation: ${FEDERATION_DOMAIN} | Auth: SEP-0010`);
+  console.log(`Federation: ${FEDERATION_DOMAIN}`);
   console.log(`Protocols: x402 + MPP | Features: 11`);
 });
 

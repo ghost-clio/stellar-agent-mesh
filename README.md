@@ -24,8 +24,8 @@ Stellar Agent Mesh is standalone infrastructure. The gateway is the product — 
     │   x402 + MPP dual    │  │  Install = instant    │
     │   protocol support   │  │  Stellar economic     │
     │   Federation (SEP-2) │  │  actor                │
-    │   Web Auth (SEP-10)  │  │                       │
-    │   JWT delivery       │  │                       │
+    │                      │  │                       │
+    │                      │  │                       │
     │   Zero axios deps    │  │                       │
     └──────────┬──────────┘  └────────────────────────┘
                │
@@ -50,12 +50,9 @@ Stellar Agent Mesh is standalone infrastructure. The gateway is the product — 
 | **MPP Payments** | Machine Payments Protocol (session-based alternative) | Session lifecycle + Stellar settlement |
 | **Path Payments** | Buyer pays any asset, seller receives preferred | `pathPaymentStrictReceive` |
 | **Federation** | Human-readable addresses (`atlas*mesh.agent`) | SEP-0002 |
-| **Web Auth** | Prove identity via signed Stellar challenge | SEP-0010 |
-| **JWT Delivery** | Atomic paid delivery protection | HMAC-signed tokens |
 | **Spending Policies** | Per-tx and daily limits with 403 rejection | Soroban contract |
 | **Reliability Tracking** | Per-agent success/failure log for service delivery | Soroban events |
 | **Time Bounds** | Replay protection (60s expiry on all txs) | Transaction time bounds |
-| **Chain Payments** | Multi-hop A→B→C sequential payments | Chained transactions |
 | **Persistent Logs** | Append-only JSONL transaction logs (survive restarts) | — |
 
 ## How It Works
@@ -110,177 +107,4 @@ atlas*mesh.agent  →  GABCDEF...
 sage*mesh.agent   →  GHIJKL...
 ```
 
-### Web Authentication (SEP-0010)
 
-```
-1. GET  /auth/challenge?account=G...    → { transaction: xdr, nonce: "..." }
-2. Agent signs the transaction
-3. POST /auth/verify { transaction }    → { token: "jwt...", expiresIn: 3600 }
-```
-
-Includes nonce replay protection, 30s clock skew tolerance, and domain binding.
-
-### JWT Delivery Protection
-
-Prevents "paid but not delivered":
-```
-1. Agent pays → 2. POST /delivery/token {txHash} → 3. Gateway verifies on-chain → 4. One-time token issued
-```
-
-### Spending Policies
-
-```
-Atlas: "Buy code review"        → $1.70  → ✅ Within policy
-Atlas: "Buy everything"         → $10000 → ❌ 403 spending_policy_violation
-```
-
-Daily spend tracking resets at midnight. Check and confirm are split — no double-counting.
-
-## Components
-
-| Component | Lines | Dependencies | Description |
-|-----------|-------|-------------|-------------|
-| `gateway/` | ~850 | express, @stellar/stellar-sdk, @x402/* | Payment infrastructure (zero axios) |
-| `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reliability |
-| `skill/` | 5 tools | bash | OpenClaw AgentSkill |
-| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | ~1100 | separate repo | Independent test client |
-
-### Soroban Contract
-
-**Contract ID:** `CDGABNPXUMVUFUDDUW7SW4YSSJKGZ7SA2P2UJ4DSXUV3KXTE6J2ZSGEI` (testnet)
-
-Functions: `register_service`, `discover`, `record_outcome`, `get_stats`, `set_spending_policy`, `check_spend`, `get_price`
-
-Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
-
-### Gateway Endpoints (21)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/x402/weather` | GET | x402-protected weather data |
-| `/x402/code-review` | GET | x402-protected code review |
-| `/register` | POST | Register a service |
-| `/discover` | GET | Find services by capability |
-| `/service/:id` | GET | x402 payment flow (402→pay→200) |
-| `/service/:id?buyer=` | GET | Price query + buyer reliability stats |
-| `/pay` | POST | Direct Stellar payment |
-| `/path-pay` | POST | Path payment via DEX |
-| `/chain` | POST | Multi-hop chain payment |
-| `/federation` | GET | Resolve federation addresses |
-| `/federation/register` | POST | Register federation name |
-| `/auth/challenge` | GET | SEP-0010 challenge |
-| `/auth/verify` | POST | Verify signed challenge → JWT |
-| `/mpp/session` | POST | Create MPP payment session |
-| `/mpp/verify` | POST | Verify MPP payment → receipt |
-| `/delivery/token` | POST | Issue JWT delivery token |
-| `/stats/:address` | GET | Query agent reliability stats |
-| `/stats/failure` | POST | Record service delivery failure |
-| `/policy` | POST | Set spending policy |
-| `/balance/:address` | GET | Check XLM/USDC balance |
-| `/txlog` | GET | Transaction audit log (persistent) |
-| `/health` | GET | System status |
-
-## Battle Harness (Separate Repo)
-
-The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) runs 4 AI agents (Nemotron 120B) autonomously transacting across 16 economic scenarios — normal payments, stress tests, malformed proofs, wallet drains, reliability tracking, and more. It communicates with this gateway exclusively via HTTP.
-
-Every transaction is logged to persistent JSONL files that survive restarts.
-
-## Quick Start
-
-```bash
-# 1. Clone
-git clone https://github.com/ghost-clio/stellar-agent-mesh.git
-cd stellar-agent-mesh
-
-# 2. Install
-cd gateway && npm install && cd ..
-
-# 3. Configure
-cp .env.example .env
-
-# 4. Run the gateway
-cd gateway && npx tsc && node dist/index.js
-# Gateway running on http://localhost:3402
-
-# 5. (Optional) Run the battle harness
-# See: https://github.com/ghost-clio/stellar-agent-mesh-harness
-```
-
-## OpenClaw Skill
-
-Install the skill and any OpenClaw agent becomes a Stellar economic actor:
-
-```bash
-# Discover services
-bash skill/scripts/discover.sh code-review
-
-# Register as provider
-bash skill/scripts/register.sh my-svc G... 1.0 translation http://...
-
-# Pay via federation
-bash skill/scripts/pay.sh sage*mesh.agent 1.5
-
-# Check reliability stats
-bash skill/scripts/stats.sh G...
-
-# Check balance
-bash skill/scripts/balance.sh G...
-```
-
-## Why Stellar
-
-| | Stellar | Ethereum | Solana |
-|---|---------|----------|--------|
-| **Tx fee** | $0.00000003 | $0.50-50+ | $0.00025 |
-| **Finality** | < 5 sec | ~15 min | ~0.4 sec |
-| **Path payments** | ✅ Native | ❌ | ❌ |
-| **Federation** | ✅ SEP-0002 | ❌ | ❌ |
-| **Web Auth** | ✅ SEP-0010 | ❌ | ❌ |
-| **Built for** | Payments | Compute | Speed |
-
-## Cost
-
-| Component | Cost |
-|-----------|------|
-| Nemotron 120B (OpenRouter) | $0 |
-| Stellar testnet (Friendbot) | $0 |
-| Gateway hosting | $0 |
-| **Total to run the full stack** | **$0** |
-
-## What's Working, What's Not
-
-### Working ✅
-- Full x402 flow with real Stellar testnet transactions
-- MPP as a genuine alternative protocol (session lifecycle, expiry cleanup, receipts)
-- Federation address resolution (SEP-0002)
-- SEP-0010 challenge-response auth (nonce replay protection, clock skew tolerance)
-- JWT delivery token issuance (on-chain tx verification)
-- Path payments via Stellar DEX
-- Multi-hop chain transactions (A→B→C)
-- Spending policies with daily tracking and 403 rejection
-- Reliability tracking (success/failure stats per agent)
-- Soroban contract deployed and callable on testnet
-- 54 unit + integration tests passing
-- Persistent JSONL transaction logs (survive restarts)
-- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 automated patterns, 4 Nemotron agents
-
-### Limitations 📝
-- Federation is in-memory (production: stellar.toml + HTTPS callback)
-- MPP sessions are in-memory (production: Redis or persistent store)
-- Path payment tests use XLM→XLM (testnet lacks diverse liquidity pools)
-- Soroban contract interactions are gateway-mediated (direct SDK calls need additional wiring)
-- Testnet only (as recommended for hackathon)
-- Secret keys in harness request bodies (testnet necessity — production would use wallet signing)
-
-## Security Notes
-- Gateway has zero dependency on axios (uses native `fetch`)
-- SEP-0010 nonces tracked to prevent replay attacks
-- MPP sessions cleaned up on expiry to prevent race conditions
-- Transaction amounts verified within 1% tolerance
-- All Stellar transactions use 60-second time bounds
-- CORS is permissive (testnet scope — production would restrict origins)
-
-## License
-
-Apache-2.0
