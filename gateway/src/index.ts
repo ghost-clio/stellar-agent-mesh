@@ -354,9 +354,17 @@ app.get('/reputation/:address', (req: Request, res: Response) => {
   res.json({ address, fedAddress: fed?.stellar_address, ...stats });
 });
 
-// GET /spending/:address — What did this agent spend, on what, and when?
-app.get('/spending/:address', (req: Request, res: Response) => {
-  const address = String(req.params.address);
+// GET /spending — Your own spending history. Address from X-BUYER-ADDRESS header.
+// No address param = no way to pull someone else's data.
+app.get('/spending', (req: Request, res: Response) => {
+  const rawBuyer = req.headers['x-buyer-address'];
+  const address = Array.isArray(rawBuyer) ? rawBuyer[0] : rawBuyer;
+
+  if (!address) {
+    res.status(400).json({ error: 'missing X-BUYER-ADDRESS header' });
+    return;
+  }
+
   const fed = federation.resolveByAddress(address);
   const summary = registry.getSpendingSummary(address);
   const policy = registry.getSpendingPolicy(address);
