@@ -593,6 +593,13 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     protocol: 'x402',
   });
 
+  // Fire-and-forget: record reputation on Soroban contract (on-chain audit trail)
+  // Uses the seller's key to sign since they're confirming delivery
+  const sellerEntry = registry.getService(id);
+  if (sellerEntry && req.body.sellerSecret) {
+    recordReputationOnChain(req.body.sellerSecret, buyerAddress, true).catch(() => {});
+  }
+
   res.json(result);
 });
 
@@ -822,6 +829,22 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────
+// SOROBAN — On-chain reputation query
+// ──────────────────────────────────────────
+
+import { getOnChainReputation } from './soroban.js';
+
+app.get('/reputation/onchain/:address', async (req: Request, res: Response) => {
+  const rep = await getOnChainReputation(String(req.params.address));
+  if (!rep) {
+    res.status(404).json({ error: 'no_onchain_reputation', message: 'No on-chain reputation data found. Contract may not be configured.' });
+    return;
+  }
+  const successRate = rep.txCount > 0 ? (rep.successCount / rep.txCount * 100).toFixed(1) : '0';
+  res.json({ ...rep, successRate: `${successRate}%`, source: 'soroban_contract' });
+});
+
+// ──────────────────────────────────────────
 // ESCROW — Claimable balance pay-on-completion
 // ──────────────────────────────────────────
 
@@ -829,6 +852,8 @@ import {
   createEscrow, claimEscrow, refundEscrow,
   getEscrow, listEscrows,
 } from './escrow.js';
+
+import { recordReputationOnChain } from './soroban.js';
 
 // POST /escrow/create — Lock funds until service is delivered
 app.post('/escrow/create', async (req: Request, res: Response) => {
