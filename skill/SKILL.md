@@ -177,25 +177,12 @@ Check an agent's delivery reliability stats.
 
 ## Advanced Patterns
 
-### Multi-Hop Chains
+### Price Check
 
-Pay agent A, who pays agent B, who pays agent C — all in one atomic flow:
-```bash
-curl -X POST $GATEWAY_URL/chain -H 'Content-Type: application/json' \
-  -d '{"hops":[
-    {"senderSecret":"S...","destination":"G_B...","amount":"1.5","serviceId":"svc-b"},
-    {"senderSecret":"S_B...","destination":"G_C...","amount":"0.8","serviceId":"svc-c"}
-  ]}'
-```
-
-Use chains when you need to orchestrate multi-agent workflows where each step depends on the previous.
-
-### Price Comparison
-
-Query effective prices without triggering payment:
+Query service price and your reliability stats without triggering payment:
 ```bash
 curl "$GATEWAY_URL/service/sage-code-review?buyer=$MY_ADDRESS"
-# Returns: { basePrice: 1.75, effectivePrice: 1.40, discount: 20 }
+# Returns: { price: 1.75, buyer: "G...", reliability: { txCount: 50, successCount: 48 } }
 ```
 
 ### Federation Resolution

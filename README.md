@@ -102,9 +102,160 @@ GET /stats/GABCDEF...
 
 ### Federation (SEP-0002)
 
+Human-readable addresses for agents — like ENS for Stellar:
+
 ```
 atlas*mesh.agent  →  GABCDEF...
 sage*mesh.agent   →  GHIJKL...
 ```
 
+Pay by name instead of raw pubkey:
+```bash
+POST /pay { "destination": "sage*mesh.agent", "amount": "1.5" }
+```
+
+### Spending Dashboard
+
+Your agent's spending history, broken down by service and day. Only returns your own data (identified by `X-BUYER-ADDRESS` header).
+
+```bash
+GET /spending?since=2026-03-01&limit=50
+→ {
+    totalSpent: 47.32,
+    txCount: 28,
+    byService: { "sage-code-review": { count: 12, spent: 21.0 }, ... },
+    byDay: { "2026-03-31": 5.2, "2026-03-30": 8.1 },
+    recent: [ ... last 50 txs ... ],
+    policy: { perTxLimit: 5, dailyLimit: 50 }
+  }
+```
+
+### Spending Policies
+
+```
+Atlas: "Buy code review"  → $1.70  → ✅ Within policy
+Atlas: "Buy everything"   → $10K   → ❌ 403 spending_policy_violation
+```
+
+Daily spend tracking resets at midnight. Check and confirm are split — no double-counting.
+
+## Components
+
+| Component | Lines | Dependencies | Description |
+|-----------|-------|-------------|-------------|
+| `gateway/` | ~700 | express, @stellar/stellar-sdk, @x402/* | Payment infrastructure (zero axios) |
+| `contracts/registry/` | 226 | soroban-sdk | On-chain registry + reliability |
+| `skill/` | 6 tools | bash | OpenClaw AgentSkill |
+| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | ~1100 | separate repo | Independent test client |
+
+### Soroban Contract
+
+**Contract ID:** `CDGABNPXUMVUFUDDUW7SW4YSSJKGZ7SA2P2UJ4DSXUV3KXTE6J2ZSGEI` (testnet)
+
+Functions: `register_service`, `discover`, `record_outcome`, `get_stats`, `set_spending_policy`, `check_spend`, `get_price`
+
+Events: `SvcReg`, `RepUpd`, `SpndVio`, `SvcDlvr`
+
+### Gateway Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/register` | POST | Register a service |
+| `/discover` | GET | Find services by capability (includes prices) |
+| `/service/:id` | GET | x402 payment flow (402→pay→200) |
+| `/service/:id?buyer=` | GET | Price query + buyer reliability stats |
+| `/pay` | POST | Direct Stellar payment |
+| `/path-pay` | POST | Path payment via DEX |
+| `/federation` | GET | Resolve federation addresses |
+| `/federation/register` | POST | Register federation name |
+| `/mpp/session` | POST | Create MPP payment session |
+| `/mpp/verify` | POST | Verify MPP payment → receipt |
+| `/spending` | GET | Your spending history (header-authenticated) |
+| `/stats/:address` | GET | Agent reliability stats |
+| `/stats/failure` | POST | Record service delivery failure |
+| `/policy` | POST | Set spending policy |
+| `/balance/:address` | GET | Check XLM/USDC balance |
+| `/txlog` | GET | Transaction audit log (persistent) |
+| `/health` | GET | System status |
+
+## Battle Harness (Separate Repo)
+
+The [battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) runs 4 AI agents (Nemotron 120B) autonomously transacting across 16 economic scenarios — normal payments, stress tests, malformed proofs, wallet drains, reliability tracking, and more. It communicates with this gateway exclusively via HTTP.
+
+Every transaction is logged to persistent JSONL files that survive restarts.
+
+## Quick Start
+
+```bash
+# 1. Clone
+git clone https://github.com/ghost-clio/stellar-agent-mesh.git
+cd stellar-agent-mesh
+
+# 2. Install
+cd gateway && npm install && cd ..
+
+# 3. Configure
+cp .env.example .env
+
+# 4. Run the gateway
+cd gateway && npx tsc && node dist/index.js
+# Gateway running on http://localhost:3402
+
+# 5. (Optional) Run the battle harness
+# See: https://github.com/ghost-clio/stellar-agent-mesh-harness
+```
+
+## Why Stellar
+
+| | Stellar | Ethereum | Solana |
+|---|---------|----------|--------|
+| **Tx fee** | $0.00000003 | $0.50-50+ | $0.00025 |
+| **Finality** | < 5 sec | ~15 min | ~0.4 sec |
+| **Path payments** | ✅ Native | ❌ | ❌ |
+| **Federation** | ✅ SEP-0002 | ❌ | ❌ |
+| **Built for** | Payments | Compute | Speed |
+
+## Cost
+
+| Component | Cost |
+|-----------|------|
+| Nemotron 120B (OpenRouter) | $0 |
+| Stellar testnet (Friendbot) | $0 |
+| Gateway hosting | $0 |
+| **Total to run the full stack** | **$0** |
+
+## What's Working, What's Not
+
+### Working ✅
+- Full x402 flow with real Stellar testnet transactions
+- MPP as a genuine alternative protocol (session lifecycle, expiry cleanup, receipts)
+- Federation address resolution (SEP-0002)
+- Path payments via Stellar DEX
+- Spending dashboard with time filtering
+- Spending policies with daily tracking and 403 rejection
+- Reliability tracking (success/failure stats per agent)
+- Soroban contract deployed and callable on testnet
+- 54 unit + integration tests passing
+- Persistent JSONL transaction logs (survive restarts)
+- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 automated patterns, 4 Nemotron agents
+
+### Limitations 📝
+- Federation is in-memory (production: stellar.toml + HTTPS callback)
+- MPP sessions are in-memory (production: Redis or persistent store)
+- Path payment tests use XLM→XLM (testnet lacks diverse liquidity pools)
+- Soroban contract interactions are gateway-mediated (direct SDK calls need additional wiring)
+- Testnet only (as recommended for hackathon)
+- Secret keys in harness request bodies (testnet necessity — production would use wallet signing)
+
+## Security Notes
+- Gateway has zero dependency on axios (uses native `fetch`)
+- Transaction amounts verified within 1% tolerance
+- All Stellar transactions use 60-second time bounds
+- Spending data is private — `/spending` only returns your own data via header auth
+- CORS is permissive (testnet scope — production would restrict origins)
+- Auth is payment-based: signed Stellar transactions ARE proof of identity. No separate auth layer needed.
+
+## License
+
+Apache-2.0
 
