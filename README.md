@@ -87,7 +87,7 @@ Stellar Agent Mesh is a protocol-agnostic payment gateway that any agent framewo
 ### Escrow (Pay-on-Completion)
 | Feature | Description |
 |---------|-------------|
-| **Claimable balance escrow** | Lock XLM until service is delivered. Seller claims after delivery, buyer refunds after timeout. Uses Stellar's native claimable balances — no smart contract needed. |
+| **Claimable balance escrow** | Lock XLM until service is delivered. Seller claims after delivery, buyer refunds after timeout. Uses Stellar's native claimable balances — predicates enforced at the network level. Our gateway can go down and the escrow still works: seller claims via any Horizon node, buyer refunds after timeout. The security isn't our code — it's Stellar consensus. |
 | **Time-bounded** | Buyer sets timeout (default 1 hour). After timeout, buyer can reclaim if service wasn't delivered. |
 | **Tracked** | All escrows logged to txlog with `escrow_create`, `escrow_claim`, `escrow_refund` types. |
 
