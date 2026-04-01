@@ -27,6 +27,18 @@ const RECIPIENT_ADDRESS =
 
 const startTime = Date.now();
 
+// ── Idempotency cache (prevents duplicate payments on retries) ──
+const idempotencyCache = new Map<string, { result: any; timestamp: number }>();
+const IDEMPOTENCY_TTL = 86400000; // 24 hours
+
+// Clean expired entries every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of idempotencyCache) {
+    if (now - val.timestamp > IDEMPOTENCY_TTL) idempotencyCache.delete(key);
+  }
+}, 3600000);
+
 // ── Fiat price cache (XLM→USD) ──
 let xlmUsdPrice = 0;
 let xlmPriceUpdatedAt = 0;
@@ -281,11 +293,28 @@ app.post('/delivery/token', async (req: Request, res: Response) => {
 // ──────────────────────────────────────────
 
 app.post('/register', (req: Request, res: Response) => {
-  const { id, seller, price, capability, endpoint, name, asset } = req.body;
+  const { id, seller, price, capability, endpoint, name, asset, proof } = req.body;
   if (!id || !seller || price == null || !capability || !endpoint) {
     res.status(400).json({ error: 'missing required fields: id, seller, price, capability, endpoint' });
     return;
   }
+
+  // Verify key ownership: seller must sign the service ID to prove they own the key
+  if (proof) {
+    try {
+      const keypair = StellarSdk.Keypair.fromPublicKey(seller);
+      const verified = keypair.verify(Buffer.from(id), Buffer.from(proof, 'base64'));
+      if (!verified) {
+        res.status(403).json({ error: 'invalid_proof', message: 'Signature does not match seller public key' });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: 'invalid_proof', message: 'Malformed proof or seller key' });
+      return;
+    }
+  }
+  // Note: proof is optional for testnet/dev. Production should require it.
+
   registry.registerService(id, seller, price, capability, endpoint, asset || 'native');
   // Auto-register federation address if name provided
   if (name) {
@@ -466,14 +495,7 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     ? parseFloat(Array.isArray(rawPaymentAmount) ? rawPaymentAmount[0] : rawPaymentAmount)
     : registry.getPrice(id);
 
-  // Rate limit check → 429
-  if (!registry.checkRateLimit(buyerAddress)) {
-    res.status(429).json({ error: 'rate_limit_exceeded', message: 'Too many requests per minute' });
-    return;
-  }
-  registry.recordRequest(buyerAddress);
-
-  // Blocklist check → 403
+  // Blocklist check → 403 (FIRST — hard ban, no exceptions)
   if (registry.isBlocked(buyerAddress, service.seller)) {
     res.status(403).json({
       error: 'seller_blocked',
@@ -482,6 +504,13 @@ app.get('/service/:id', async (req: Request, res: Response) => {
     });
     return;
   }
+
+  // Rate limit check → 429
+  if (!registry.checkRateLimit(buyerAddress)) {
+    res.status(429).json({ error: 'rate_limit_exceeded', message: 'Too many requests per minute' });
+    return;
+  }
+  registry.recordRequest(buyerAddress);
 
   // Spending policy check → 403 (falls back to default policy if no custom one)
   if (!registry.checkSpend(buyerAddress, paymentAmount)) {
@@ -578,6 +607,16 @@ app.post('/pay', async (req: Request, res: Response) => {
     return;
   }
 
+  // Idempotency: return cached result for duplicate requests
+  const idempotencyKey = req.headers['idempotency-key'] as string | undefined;
+  if (idempotencyKey) {
+    const cached = idempotencyCache.get(idempotencyKey);
+    if (cached) {
+      res.json({ ...cached.result, idempotent: true });
+      return;
+    }
+  }
+
   // Resolve federation address if provided
   let destAddress = destination;
   if (destination.includes('*')) {
@@ -591,6 +630,10 @@ app.post('/pay', async (req: Request, res: Response) => {
 
   try {
     const result = await submitPayment(senderSecret, destAddress, String(amount), memo);
+    // Cache for idempotency
+    if (idempotencyKey) {
+      idempotencyCache.set(idempotencyKey, { result, timestamp: Date.now() });
+    }
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'payment_failed' });

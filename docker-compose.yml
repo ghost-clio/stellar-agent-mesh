@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "3402:3402"
+    environment:
+      - PORT=3402
+      - STELLAR_NETWORK=testnet
+      - ADMIN_KEY=demo-admin-key
+    restart: unless-stopped
