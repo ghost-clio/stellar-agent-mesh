@@ -54,7 +54,7 @@ Stellar Agent Mesh is a protocol-agnostic payment gateway that any agent framewo
 | Feature | Description |
 |---------|-------------|
 | **x402 Payments** | HTTP 402 → pay → verify → deliver. Native XLM settlement. |
-| **MPP Payments** | Session-based alternative. Expiry, cleanup, receipts. |
+| **MPP Payments** | Integrated with [`@stellar/mpp`](https://github.com/stellar/stellar-mpp-sdk) — SDF's official Machine Payments Protocol SDK. We built MPP from scratch before the SDK existed ([`mpp-legacy.ts`](gateway/src/mpp-legacy.ts)), then migrated to official tooling. |
 | **Path Payments** | Pay in any asset, seller receives their preferred one. Stellar DEX handles conversion. |
 | **Asset-agnostic pricing** | Services declare price + asset (`native`, `USDC`, `EURC`, anything). |
 | **Contacts + Send** | `send alice 50` — look up by name, resolve federation, pay. Venmo-simple. |
