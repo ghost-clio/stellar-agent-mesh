@@ -356,6 +356,15 @@
         <div class="features-grid" id="features-grid"></div>
       </section>
 
+      <section>
+        <h2>📡 Live Stellar Horizon Feed</h2>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 2s infinite;margin-right:6px;"></span>
+          Real-time payments from Stellar testnet · Auto-refreshes every 30s
+        </div>
+        <div id="horizon-feed" style="color:var(--text-dim);">Loading Horizon data...</div>
+      </section>
+
       <footer>
         <div>
           <span>Stellar testnet</span> · <span id="uptime"></span> · <span id="last-updated"></span>
@@ -531,6 +540,78 @@
     loadDashboard();
     // Refresh every 5 minutes
     setInterval(loadDashboard, 300000);
+
+    // ── Live Horizon Feed ──
+    const AGENT_ACCOUNTS = {
+      'GBLVZSIKUQXVA6BZDK6YL5A5XTX73QHBYICCYQYBQXBZJ7SYELYWPGV6': 'pixel',
+      'GCQZR3FLMERJ4I6RYIAQV3OLXIXMQ3S7WHCVNUXT3YIJHZSWBNRGKR4T': 'atlas',
+      'GD7FZPBMHROSCT2FZLUEHWI5MHSQ7GCEL2K5GV5PNLG6IX5BQNSOATA': 'nova',
+      'GBHC4C7V2F3DKBJIIJWTIY4LME3WJPOVT37TSG3EZTZ7XBZGCY3BYJRZ': 'echo',
+    };
+
+    function timeAgo(ts) {
+      const s = Math.floor(Date.now()/1000 - new Date(ts).getTime()/1000);
+      if (s < 60) return s + 's ago';
+      if (s < 3600) return Math.floor(s/60) + 'm ago';
+      if (s < 86400) return Math.floor(s/3600) + 'h ago';
+      return Math.floor(s/86400) + 'd ago';
+    }
+
+    async function fetchHorizonFeed() {
+      const feedEl = document.getElementById('horizon-feed');
+      if (!feedEl) return;
+      try {
+        // Fetch recent payments for each agent
+        const allOps = [];
+        for (const [acct, name] of Object.entries(AGENT_ACCOUNTS)) {
+          try {
+            const r = await fetch(`${HORIZON}/accounts/${acct}/payments?order=desc&limit=5`);
+            const d = await r.json();
+            if (d._embedded?.records) {
+              d._embedded.records.forEach(op => { op._agentName = name; });
+              allOps.push(...d._embedded.records);
+            }
+          } catch {}
+        }
+        // Sort by created_at desc
+        allOps.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        if (allOps.length === 0) {
+          feedEl.innerHTML = '<div style="padding:12px; color:var(--text-dim);">No recent payments on Horizon</div>';
+          return;
+        }
+
+        feedEl.innerHTML = `<table style="width:100%">
+          <thead><tr>
+            <th>Agent</th><th>Type</th><th>Amount</th><th>From/To</th><th>Age</th><th>TX</th>
+          </tr></thead>
+          <tbody>${allOps.slice(0, 15).map(op => {
+            const agent = op._agentName || '?';
+            const type = op.type_i === 1 ? 'payment' : op.type_i === 13 ? 'path_payment' : op.type || 'op';
+            const amount = op.amount ? parseFloat(op.amount).toFixed(4) : '—';
+            const asset = op.asset_type === 'native' ? 'XLM' : (op.asset_code || '?');
+            const counterparty = op.from && AGENT_ACCOUNTS[op.from]
+              ? AGENT_ACCOUNTS[op.from]
+              : op.to && AGENT_ACCOUNTS[op.to]
+              ? AGENT_ACCOUNTS[op.to]
+              : (op.from || op.to || '').slice(0,8) + '...';
+            const txHash = op.transaction_hash || '';
+            return `<tr>
+              <td style="color:var(--accent); font-weight:600;">${agent}</td>
+              <td><span class="type-badge type-${type}">${type}</span></td>
+              <td style="font-family:var(--mono);">${amount} ${asset}</td>
+              <td style="color:var(--text-dim); font-size:12px;">${counterparty}</td>
+              <td style="color:var(--text-dim); font-size:12px;">${timeAgo(op.created_at)}</td>
+              <td>${txHash ? `<a class="tx-link" href="${HORIZON}/transactions/${txHash}" target="_blank">${txHash.slice(0,8)}...</a>` : '—'}</td>
+            </tr>`;
+          }).join('')}</tbody></table>`;
+      } catch (e) {
+        feedEl.innerHTML = '<div style="padding:12px; color:var(--text-dim);">Failed to load Horizon feed</div>';
+      }
+    }
+
+    fetchHorizonFeed();
+    setInterval(fetchHorizonFeed, 30000);
   </script>
 </body>
 </html>

@@ -238,6 +238,11 @@ npx tsc && node dist/index.js
 - Soroban interactions are gateway-mediated
 - Secret keys in harness request bodies (testnet — production uses wallet signing)
 
+## Related
+
+- **[Live Dashboard](https://ghost-clio.github.io/stellar-agent-mesh/)** — Real-time stats, agent activity, Horizon feed, 18 features
+- **[Battle Harness](https://github.com/ghost-clio/stellar-agent-mesh-harness)** — 4 AI agents, 16 transaction patterns, persistent logs
+
 ## License
 
 Apache-2.0
