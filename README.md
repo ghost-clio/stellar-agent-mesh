@@ -2,6 +2,10 @@
 
 Agent-to-agent economic infrastructure on Stellar. Agents discover services, pay via x402 or MPP, enforce spending policies, and settle in under 5 seconds — all on real Stellar rails.
 
+
+https://github.com/user-attachments/assets/74c0a1c2-3f82-4c44-8fe2-9f6a0604a855
+
+
 > **Stellar Hacks: Agents** submission — built by [ghost-clio](https://github.com/ghost-clio)
 
 ## The Problem
