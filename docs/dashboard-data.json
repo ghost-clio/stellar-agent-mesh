@@ -1,372 +1,502 @@
 {
-  "totalTxs": 954,
-  "verifiedCount": 948,
-  "successCount": 948,
-  "escrowCount": 0,
-  "totalVolume": 33.041199999999996,
-  "uptimeHours": 19.2,
-  "network": "testnet",
+  "totalTxs": 1308,
+  "verifiedCount": 495,
+  "successCount": 495,
+  "escrowCount": 28,
+  "totalVolume": 537.0056,
+  "uptimeHours": 2.3,
   "agentCount": 4,
+  "network": "testnet",
   "protocolBreakdown": {
-    "x402": 891,
-    "mpp": 16
+    "x402": 463,
+    "mpp": 9,
+    "escrow": 28
   },
-  "lastUpdated": "2026-04-03T07:25:00Z",
   "agents": {
     "atlas": {
-      "txCount": 240,
-      "successRate": "99.2%",
-      "bought": 120,
-      "sold": 120
+      "txCount": 118,
+      "successRate": "99%",
+      "bought": 118,
+      "sold": 0
+    },
+    "sage": {
+      "txCount": 108,
+      "successRate": "98%",
+      "bought": 108,
+      "sold": 0
     },
     "pixel": {
-      "txCount": 238,
-      "successRate": "99.1%",
-      "bought": 119,
-      "sold": 119
+      "txCount": 130,
+      "successRate": "99%",
+      "bought": 130,
+      "sold": 0
     },
-    "nova": {
-      "txCount": 238,
-      "successRate": "98.7%",
-      "bought": 119,
-      "sold": 119
-    },
-    "echo": {
-      "txCount": 238,
-      "successRate": "99.5%",
-      "bought": 119,
-      "sold": 119
+    "quant": {
+      "txCount": 107,
+      "successRate": "99%",
+      "bought": 107,
+      "sold": 0
     }
   },
   "recentTransactions": [
     {
-      "timestamp": "2026-04-03T06:00:53.104Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "pixel-image-gen",
-      "amount": 1.4372,
-      "txHash": "041ae0d4b04ed0a0a18d43ac66c7645dd8446c2e3f9e6573f050f1c9fc461ccc",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:39.101Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Quant",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.5642,
+      "success": true,
+      "txHash": "32843c12b14a04e407a8f8eee539006d259246bb279fbd9a4cc3ee96eb7e14d4"
     },
     {
-      "timestamp": "2026-04-03T06:00:55.641Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "quant-risk-scoring",
-      "amount": 1.0342,
-      "txHash": "3c46335caa2d9d419a16229d500a06e0813131878f44eb1674b20c2011352e9c",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:43.407Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Quant",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.3823,
+      "success": true,
+      "txHash": "b068d3c7a25e5530c8bd8a4098822428c9fc5f9e255a6032bb2d47510128a3cc"
     },
     {
-      "timestamp": "2026-04-03T06:00:56.680Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "sage-bug-analysis",
-      "amount": 2.174,
-      "txHash": "dcd6b1606e12aeab7724c07e83a83cdc52ce7b2770facfeb1480c214938a8bf4",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:44.011Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "atlas-news-aggregation",
+      "amount": 1.2687,
+      "success": true,
+      "txHash": "a5f5a52850e96b1e3865934ecbc7a74b6e3e207f12720c64b0f8695d8eda6b31"
     },
     {
-      "timestamp": "2026-04-03T06:00:56.862Z",
-      "buyer": "GBLVZSIKUQXVA6BZDK6YL5A5XTX73QHBYICCYQYBQXBZJ7SYELYWPGV6",
-      "buyerFed": "pixel*mesh.agent",
-      "service": "quant-market-data",
-      "amount": 0.1095,
-      "txHash": "3a4de8921b7c770bcf2dbe071ae881ff5b2b8e47aa056f2e926197ed7d6875c5",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:44.157Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "sage-code-review",
+      "amount": 1.6233,
+      "success": true,
+      "txHash": "5c33b9682695e483c9f87b59826d3fcdbe8e15424fbab87ffbd8b77ec081fc3b"
     },
     {
-      "timestamp": "2026-04-03T06:00:56.928Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "pixel-image-gen",
-      "amount": 1.4998,
-      "txHash": "a738f8ef0d13c4b9f0796814f52919fb3f2302e59a8ec4a45b9031947762341d",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:48.149Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "atlas-web-search",
+      "amount": 0.4933,
+      "success": true,
+      "txHash": "7f8575d35aa4321da040dea8733e3602fb196363569d35bc5747b91a9a8aa7d3"
     },
     {
-      "timestamp": "2026-04-03T06:00:58.277Z",
-      "buyer": "GBLVZSIKUQXVA6BZDK6YL5A5XTX73QHBYICCYQYBQXBZJ7SYELYWPGV6",
-      "buyerFed": "pixel*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.3223,
-      "txHash": "ad120a9c194179a8fb42061683d39b3136427b86a3971087731554294f555374",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:48.297Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Sage",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.3661,
+      "success": true,
+      "txHash": "62e686b36932a773485583d8526b42a81b0da5dd2d298d6e423627d752257078"
     },
     {
-      "timestamp": "2026-04-03T06:00:58.311Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "sage-bug-analysis",
-      "amount": 1.8344,
-      "txHash": "c31fad2b95814bd4576c8b413a47ac0bf8a454f22c84722e5f7070c78477a59a",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:53.366Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "quant-market-data",
+      "amount": 0.0935,
+      "success": true,
+      "txHash": "22d96c73ab2ce3764ee03dac0926f2a80e73918ae78f8717a122d0948adc9a6f"
     },
     {
-      "timestamp": "2026-04-03T06:01:02.064Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "sage-bug-analysis",
-      "amount": 2.0381,
-      "txHash": "4991ac1995bd943fdb213dd7636f022156ad88d59cc8d2153232613b0d3281f2",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:53.372Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "atlas-news-aggregation",
+      "amount": 1.2542,
+      "success": true,
+      "txHash": "ef1aa3738f13da5db15cfc969206d70bc6d0378c596a4d818f4e322e193c286a"
     },
     {
-      "timestamp": "2026-04-03T06:01:07.921Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "pixel-image-gen",
-      "amount": 1.637,
-      "txHash": "5e33ec70cb7375d6bc68f55e19f40cbcf8b30a30002c1482fa1d351fcf0b60d9",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:54.097Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Quant",
+      "serviceId": "sage-code-review",
+      "amount": 1.6755,
+      "success": true,
+      "txHash": "7a9a024f4402a446b93e99580a061a143cf8f7ebe793d0f6fffb74e84b1236aa"
     },
     {
-      "timestamp": "2026-04-03T06:01:09.602Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "sage-code-review",
-      "amount": 1.5894,
-      "txHash": "468acb6c51a2b47ab824f337ccb766a12b2406aa5f04d9e742ef5df3942c7461",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:58.291Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Sage",
+      "serviceId": "quant-risk-scoring",
+      "amount": 1.0183,
+      "success": true,
+      "txHash": "6ea963913f3ca86b0430f6955aa4d316c6c5a115ee424fd8c81b56a3244a16c8"
     },
     {
-      "timestamp": "2026-04-03T06:01:11.341Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "atlas-web-search",
-      "amount": 0.5197,
-      "txHash": "d676a06958ec15c5aaf2212404d9738f45e4f7d40a6589bd0c28770ef231be56",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:58.295Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Quant",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.3648,
+      "success": true,
+      "txHash": "7e9fad0a36bfb788ba4ec366650b86af3e2149858b9f2c77318dd71c9f0a494e"
     },
     {
-      "timestamp": "2026-04-03T06:01:19.008Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "pixel-style-transfer",
-      "amount": 0.6916,
-      "txHash": "db8185bb8e7df4fb7d86eab05669d656067ede50f538f3e5118607c76937a5d9",
-      "verified": true,
+      "timestamp": "2026-04-10T06:00:58.986Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "atlas-news-aggregation",
+      "amount": 1.3288,
+      "success": true,
+      "txHash": "8a6363f20ec9d3f99078a113fa302b802508ebaa7fffff11ba5adbb2b560f9da"
     },
     {
-      "timestamp": "2026-04-03T06:05:07.205Z",
+      "timestamp": "2026-04-10T06:01:03.337Z",
+      "type": "payment",
+      "buyerName": "Sage",
+      "serviceId": "atlas-news-aggregation",
+      "amount": 1.3573,
+      "success": true,
+      "txHash": "8fcb952b8117f045adad001777e2d107283a8e0e944f97eb03c397e26e9cac0a"
+    },
+    {
+      "timestamp": "2026-04-10T06:01:03.344Z",
+      "type": "payment",
+      "buyerName": "Pixel",
+      "serviceId": "quant-market-data",
+      "amount": 0.1051,
+      "success": true,
+      "txHash": "00a39d25935fc92414d10a4b68c295085da1200e1e849505a35bbd80114ec890"
+    },
+    {
+      "timestamp": "2026-04-10T06:01:04.052Z",
+      "type": "payment",
+      "buyerName": "Atlas",
+      "serviceId": "quant-risk-scoring",
+      "amount": 1.0551,
+      "success": true,
+      "txHash": "7ccbdd70a6f926f08fb43346730c749be2788e1a2e4dfa0227c34769cd34657c"
+    },
+    {
+      "timestamp": "2026-04-10T06:05:08.319Z",
       "type": "escrow_create",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "service": "quant-risk-scoring",
-      "amount": 1,
-      "txHash": "7d5708883f3ad8c573cfb5c3e38a0dd91bbf1cf60369df7459749347e4b1c11b",
-      "verified": true,
-      "protocol": "escrow"
+      "buyerName": "Agent",
+      "serviceId": "pixel-style-transfer",
+      "amount": 0.75,
+      "success": true,
+      "txHash": "546b5ed6009c06d9c81e765181589cdb6d754296b705bd7853560e68dcf5568d"
     },
     {
-      "timestamp": "2026-04-03T06:05:48.987Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "pixel-style-transfer",
-      "amount": 0.7369,
-      "txHash": "5fdda7da9ea1aa6975600ee14550efa25ede4bd149df91bea04c5fedd249410f",
-      "verified": true,
+      "timestamp": "2026-04-10T06:05:10.337Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "pixel-style-transfer",
+      "amount": 0.7309,
+      "success": true,
+      "txHash": "8f6bee88a0e90c7d762e699a6cbec14ae7046839b7a8271540c4effa273f5ae7"
     },
     {
-      "timestamp": "2026-04-03T06:10:21.371Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "quant-market-data",
-      "amount": 0.0964,
-      "txHash": "6b6ba600826fd9f930155ad3344990096a6540a381511d84395f23b787423073",
-      "verified": true,
+      "timestamp": "2026-04-10T06:10:05.147Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "atlas-web-search",
+      "amount": 0.5387,
+      "success": true,
+      "txHash": "52e1a920b4922709021b28adcba59b15af18a356b9d51cabad1e8c966a1871e1"
     },
     {
-      "timestamp": "2026-04-03T06:15:21.392Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "pixel-image-gen",
-      "amount": 1.422,
-      "txHash": "6e07d0b1b6f956f013208ee7d4a83152abb9bc2f8ae37cb5e2a118a6a82b56ac",
-      "verified": true,
+      "timestamp": "2026-04-10T06:15:06.100Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "pixel-style-transfer",
+      "amount": 0.7622,
+      "success": true,
+      "txHash": "d286211b872b92a05de827c2abaf4a31bf60fef8b65ca16cc32d2242c0dad50c"
     },
     {
-      "timestamp": "2026-04-03T06:20:21.676Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.1332,
-      "txHash": "488abb76ef48eaa5ad50d4f2ee13b68ca579105741fbf8d9fe97cf9d2aa1afd6",
-      "verified": true,
+      "timestamp": "2026-04-10T06:20:06.418Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "quant-market-data",
+      "amount": 0.1015,
+      "success": true,
+      "txHash": "3e4a0e331701955c59583026a7f3457a599ea7e9d78419e16683e13b7700e7fb"
     },
     {
-      "timestamp": "2026-04-03T06:25:21.259Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "pixel-style-transfer",
-      "amount": 0.7735,
-      "txHash": "e13d593c6da9ae77af30bc86c4a74496ca7fea8e0a0725f7208f01aa42dc7d72",
-      "verified": true,
+      "timestamp": "2026-04-10T06:25:07.172Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "quant-market-data",
+      "amount": 0.1087,
+      "success": true,
+      "txHash": "1758ba046be7fe415fe0785e914303c36e961d42205f1b4f317b55897dd98061"
     },
     {
-      "timestamp": "2026-04-03T06:30:18.339Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.2647,
-      "txHash": "0e106cd3f388893d0cb6084cd01ae544499166670d65de573f1e6950f66defdd",
-      "verified": true,
+      "timestamp": "2026-04-10T06:30:07.063Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Sage",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.5345,
+      "success": true,
+      "txHash": "f9992e7b69882b1df50e6eb32bea611fd8de4fc542789c4fb1664d19c4fd34fe"
     },
     {
-      "timestamp": "2026-04-03T06:35:20.374Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "pixel-image-gen",
-      "amount": 1.535,
-      "txHash": "cae72235a3b652112ee88f6b8feccc4e1bee3a7fddd724c8d08b656f1cc63da3",
-      "verified": true,
+      "timestamp": "2026-04-10T06:35:08.140Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "atlas-web-search",
+      "amount": 0.4723,
+      "success": true,
+      "txHash": "926b0365ab5bfe1a4a4bfbd7446eafe551be52c7239c3ee9ff6baeb6528c0182"
     },
     {
-      "timestamp": "2026-04-03T06:40:20.189Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "quant-market-data",
-      "amount": 0.1026,
-      "txHash": "381ddc26d394fed257b7060eafc6f38568e73d60f613a2d330f756e10a6fe5a4",
-      "verified": true,
+      "timestamp": "2026-04-10T06:40:07.934Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "sage-bug-analysis",
+      "amount": 2.1577,
+      "success": true,
+      "txHash": "5bbf3bd852dea98ecf534b2676247ad30174ee25e11bcaa0a1cf57d28a59af53"
     },
     {
-      "timestamp": "2026-04-03T06:45:24.327Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "pixel-style-transfer",
-      "amount": 0.7111,
-      "txHash": "73c2950fe18dd7edfbaa670c3b6242d0ebecfff0d39cdd959b020c4e1e150bfb",
-      "verified": true,
+      "timestamp": "2026-04-10T06:45:09.075Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "sage-code-review",
+      "amount": 1.9141,
+      "success": true,
+      "txHash": "1073e0dd618083f2767b9b89ad5378196cc647a28db9eb9d2be24c8d6afe0b76"
     },
     {
-      "timestamp": "2026-04-03T06:52:11.703Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "sage-bug-analysis",
-      "amount": 2.1347,
-      "txHash": "884330a8c1e4ea83db023823d696fdd08d4976eb8491e5a23899bc5528b4998e",
-      "verified": true,
+      "timestamp": "2026-04-10T06:50:03.891Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Sage",
+      "serviceId": "quant-risk-scoring",
+      "amount": 0.9944,
+      "success": true,
+      "txHash": "dc9f5fe57ef2d3a253ade74b502f30fda82dd4a995d528feaa1b695fb2e9f838"
     },
     {
-      "timestamp": "2026-04-03T06:55:16.526Z",
-      "buyer": "GCJMOVV736TREYTNL7XRWPPBTSGH6OWOPGOEFSRNCQ3GWRG5XCEOIZFQ",
-      "buyerFed": "atlas*mesh.agent",
-      "service": "pixel-style-transfer",
-      "amount": 0.8035,
-      "txHash": "4fb350f81035546be3015bf4bd41607a14ae73ccf9e7392c138ae6c83bb65aef",
-      "verified": true,
+      "timestamp": "2026-04-10T06:55:04.996Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Quant",
+      "serviceId": "sage-code-review",
+      "amount": 1.8496,
+      "success": true,
+      "txHash": "02928a4e2ef471d26c6943b22a60648730f8b3f83630ee57ad52fc37575b1636"
     },
     {
-      "timestamp": "2026-04-03T07:00:27.771Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.1637,
-      "txHash": "36cecaf826bf6a279282dbc1ac686d85bc870d7b34c3f6a15fe79ade1b08a665",
-      "verified": true,
+      "timestamp": "2026-04-10T07:00:05.573Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Quant",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.5912,
+      "success": true,
+      "txHash": "6c61f29644d60cf68bac8a251f00feb5e8eb9c1e8d6266c565a2d7b9a15a2bbd"
     },
     {
-      "timestamp": "2026-04-03T07:05:38.922Z",
-      "buyer": "GBIOPZQQYGHF4LVKYOJQHS5GCTUX4TPUCNWL2GT6DARHZSWGWOVPAW3Y",
-      "buyerFed": "sage*mesh.agent",
-      "service": "quant-market-data",
-      "amount": 0.1061,
-      "txHash": "848ccff4e33f2e265bd3efb2e29d426baf3b027aca027a59cb7425901431935a",
-      "verified": true,
+      "timestamp": "2026-04-10T07:05:06.509Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Sage",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.6239,
+      "success": true,
+      "txHash": "0e5f016c229af4542f2c68053373f5611f91ff5d733db8e429640bde35d9cbdc"
     },
     {
-      "timestamp": "2026-04-03T07:10:25.800Z",
-      "buyer": "GBLVZSIKUQXVA6BZDK6YL5A5XTX73QHBYICCYQYBQXBZJ7SYELYWPGV6",
-      "buyerFed": "pixel*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.1601,
-      "txHash": "b7d3e123e2bbb06492343e22f5223ae5fe18da71e78881524ab45195e4d961a1",
-      "verified": true,
+      "timestamp": "2026-04-10T07:10:06.373Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "sage-code-review",
+      "amount": 1.6818,
+      "success": true,
+      "txHash": "1acab2b85e33d02c1d579c6e4bcca16458754d56d39f7effb7f5fb148796cfed"
     },
     {
-      "timestamp": "2026-04-03T07:15:27.796Z",
-      "buyer": "GBLVZSIKUQXVA6BZDK6YL5A5XTX73QHBYICCYQYBQXBZJ7SYELYWPGV6",
-      "buyerFed": "pixel*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.3472,
-      "txHash": "1e9e4815b9d1d7f6212e41703fff1c2eea020b1f96dddd495f1796e03ed063d4",
-      "verified": true,
+      "timestamp": "2026-04-10T07:15:07.042Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "quant-market-data",
+      "amount": 0.1029,
+      "success": true,
+      "txHash": "3b4e7d2e56dd769c706c19d90d8d6fc6b494b7f8bb232cee186aecece61738c1"
     },
     {
-      "timestamp": "2026-04-03T07:20:14.534Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "atlas-news-aggregation",
-      "amount": 1.1886,
-      "txHash": "c4f104477d6e96868e2da2b453cd11d42b67ecd508cfeec3a34def57516500a4",
-      "verified": true,
+      "timestamp": "2026-04-10T07:20:07.380Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Atlas",
+      "serviceId": "quant-risk-scoring",
+      "amount": 0.9878,
+      "success": true,
+      "txHash": "1dc956208549ea380f401105f681b353323b1dfa75b9ae924d1654316590ab80"
     },
     {
-      "timestamp": "2026-04-03T07:25:22.063Z",
-      "buyer": "GBS3S5YSDQ67CNRFK2JDGILGO2GZWKUVIP6ZPRXR3FD2O52B3OW2ZO77",
-      "buyerFed": "quant*mesh.agent",
-      "service": "atlas-web-search",
-      "amount": 0.4747,
-      "txHash": "bfcbebb63b868c13a65d36a42d07db6d9e5ffcfb13937e63c14cd96a2bf963cb",
-      "verified": true,
+      "timestamp": "2026-04-10T07:25:08.472Z",
       "type": "payment",
-      "protocol": "x402"
+      "buyerName": "Pixel",
+      "serviceId": "sage-bug-analysis",
+      "amount": 2.1505,
+      "success": true,
+      "txHash": "c8832892d5d3bd171f33abb7661da049c23b9b8ba4c0eb96b038b31f63edf08a"
+    },
+    {
+      "timestamp": "2026-04-10T07:30:06.180Z",
+      "type": "mpp",
+      "buyerName": "Agent",
+      "serviceId": "unknown",
+      "amount": 0.5,
+      "success": true,
+      "txHash": "81210c7fc5787203b332715903728482c5e4e05c1e9187fffb0abdeca3de8f0a"
+    },
+    {
+      "timestamp": "2026-04-10T07:30:08.344Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "pixel-style-transfer",
+      "amount": 0.8066,
+      "success": true,
+      "txHash": "adf8e5c9e27231dc0eff52fd18b0c8e448ac968a90c7ccd1db34a3ed9d5277e3"
+    },
+    {
+      "timestamp": "2026-04-10T07:35:09.454Z",
+      "type": "payment",
+      "buyerName": "Pixel",
+      "serviceId": "quant-market-data",
+      "amount": 0.1023,
+      "success": true,
+      "txHash": "473fa164b4236de254140aa805ed74b83d1285f9c8edcea88c0f983d6f8f33f3"
+    },
+    {
+      "timestamp": "2026-04-10T07:40:09.204Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.4763,
+      "success": true,
+      "txHash": "6ce3651e8a9017ed7e0fcb7ec4a19eed3803b6a7d100409960088103aecb83b0"
+    },
+    {
+      "timestamp": "2026-04-10T07:45:05.022Z",
+      "type": "payment",
+      "buyerName": "Atlas",
+      "serviceId": "quant-risk-scoring",
+      "amount": 0.9621,
+      "success": true,
+      "txHash": "6a6341d790f21ee0ccc125d4a0be3511c54da376aa65c2d7d36c9b59aa30244e"
+    },
+    {
+      "timestamp": "2026-04-10T07:50:10.165Z",
+      "type": "payment",
+      "buyerName": "Atlas",
+      "serviceId": "pixel-style-transfer",
+      "amount": 0.8235,
+      "success": true,
+      "txHash": "aeef0c2972e24f89bb49e7c2895aef41dbae8d05d390e72463a7dfc201296d97"
+    },
+    {
+      "timestamp": "2026-04-10T07:55:06.482Z",
+      "type": "payment",
+      "buyerName": "Sage",
+      "serviceId": "atlas-web-search",
+      "amount": 0.4795,
+      "success": true,
+      "txHash": "267962dbc9ee1141d35e96e642fefade290b1a923b46611bc42a12a343fb8c73"
+    },
+    {
+      "timestamp": "2026-04-10T08:00:06.034Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "pixel-image-gen",
+      "amount": 1.6098,
+      "success": true,
+      "txHash": "ddcc13140d3a8d57188a5b4891a172f6aeb35651b41df897ebfa1f8fa64ac492"
+    },
+    {
+      "timestamp": "2026-04-10T08:05:05.006Z",
+      "type": "escrow_create",
+      "buyerName": "Agent",
+      "serviceId": "quant-market-data",
+      "amount": 0.1,
+      "success": true,
+      "txHash": "c6ae22110ef074e5e2cb6ffc8ef6c13b3f337e80ed274b477b2c0383a43aa43f"
+    },
+    {
+      "timestamp": "2026-04-10T08:05:06.446Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "sage-bug-analysis",
+      "amount": 2.1732,
+      "success": true,
+      "txHash": "cc9350146fd9ec452a04231d482d32f040f576279c5642072658df7d76654465"
+    },
+    {
+      "timestamp": "2026-04-10T08:10:07.396Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "sage-bug-analysis",
+      "amount": 2.0772,
+      "success": true,
+      "txHash": "0e0fac2abffc0ae1d96218a04a28ae9f509f2bf17e4af20374fbdaade51ed6d4"
+    },
+    {
+      "timestamp": "2026-04-10T08:15:06.293Z",
+      "type": "payment",
+      "buyerName": "Pixel",
+      "serviceId": "sage-bug-analysis",
+      "amount": 1.9309,
+      "success": true,
+      "txHash": "1aa11192f1ae2edf6c9591573b419ab92e9c2559f3f8b2745ac21e5f6d750f5f"
+    },
+    {
+      "timestamp": "2026-04-10T08:20:08.660Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "sage-bug-analysis",
+      "amount": 1.85,
+      "success": true,
+      "txHash": "2bc069f79f5abd3a97e2b2aae1f8aef49141048d06863c06d3a8259a2f754607"
+    },
+    {
+      "timestamp": "2026-04-10T08:25:07.994Z",
+      "type": "payment",
+      "buyerName": "Sage",
+      "serviceId": "atlas-web-search",
+      "amount": 0.5367,
+      "success": true,
+      "txHash": "aa211dca16070dc1a0f6ef7a8b38124d725349202e12babc3c7f0f2e7661d3c7"
+    },
+    {
+      "timestamp": "2026-04-10T08:30:09.487Z",
+      "type": "payment",
+      "buyerName": "Quant",
+      "serviceId": "atlas-web-search",
+      "amount": 0.4874,
+      "success": true,
+      "txHash": "5aa0d3b4d190cf0fbf3f610ca2daf72631860a09883a038aca001b49e95a27b9"
+    },
+    {
+      "timestamp": "2026-04-10T08:35:07.173Z",
+      "type": "escrow_create",
+      "buyerName": "Agent",
+      "serviceId": "atlas-web-search",
+      "amount": 0.5,
+      "success": true,
+      "txHash": "55450236e683620f9d2dc7e33a4e787a02f9fabf739a5592fa17bc02628fafdc"
+    },
+    {
+      "timestamp": "2026-04-10T08:40:05.576Z",
+      "type": "payment",
+      "buyerName": "Sage",
+      "serviceId": "quant-market-data",
+      "amount": 0.1044,
+      "success": true,
+      "txHash": "8f5177aa0a0bbea244db82c8feb7d8817b4b8bfa9c4af014991408e9d18b78d9"
     }
-  ]
+  ],
+  "lastUpdated": "2026-04-10T22:49:24.900757Z",
+  "staking": {
+    "totalStaked": 24.17,
+    "totalSlashed": 0.91,
+    "totalEarned": 1.76,
+    "activeStakes": 4,
+    "uniqueAgents": 4
+  },
+  "features": 19
 }
