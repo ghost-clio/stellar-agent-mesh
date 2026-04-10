@@ -324,9 +324,9 @@ app.post('/register', (req: Request, res: Response) => {
   res.status(201).json({ registered: id, federation: fedAddr });
 });
 
-// POST /stats/failure — Record a service delivery failure
+// POST /stats/failure — Record a service delivery failure (auto-slashes stake)
 app.post('/stats/failure', (req: Request, res: Response) => {
-  const { agent, reason } = req.body;
+  const { agent, reason, serviceId } = req.body;
   if (!agent) {
     res.status(400).json({ error: 'missing agent address' });
     return;
@@ -334,8 +334,19 @@ app.post('/stats/failure', (req: Request, res: Response) => {
   registry.updateReputation(agent, false);
   const stats = registry.getReputation(agent);
   const fed = federation.resolveByAddress(agent);
+
+  // Auto-slash stake if agent has one for this service
+  let slashResult = null;
+  if (serviceId) {
+    const sr = slashStake(agent, serviceId, reason || 'service_failure');
+    if (sr.success) {
+      slashResult = { slashed: sr.slashed, remaining: sr.remaining };
+      console.log(`[${new Date().toISOString()}] ⚠️ STAKE SLASHED | ${agent.slice(0, 12)} | service: ${serviceId} | -${sr.slashed} XLM | remaining: ${sr.remaining} XLM`);
+    }
+  }
+
   console.log(`[${new Date().toISOString()}] ⚠️ FAILURE RECORDED | ${fed?.stellar_address ?? agent.slice(0, 12)} | reason: ${reason} | ${stats.successCount}/${stats.txCount}`);
-  res.json({ agent, reason, stats, federation: fed?.stellar_address });
+  res.json({ agent, reason, stats, federation: fed?.stellar_address, stakeSlash: slashResult });
 });
 
 app.get('/discover', async (req: Request, res: Response) => {
@@ -581,6 +592,14 @@ app.get('/service/:id', async (req: Request, res: Response) => {
   registry.updateReputation(buyerAddress, true);
   registry.confirmSpend(buyerAddress, paymentAmount, id);
 
+  // Auto-reward seller's stake on successful delivery (fire-and-forget)
+  if (service.seller && verification.verified) {
+    const stakeReward = rewardStake(service.seller, id);
+    if (stakeReward.success) {
+      console.log(`[${new Date().toISOString()}] 💰 STAKE REWARD | ${service.seller.slice(0, 12)} | +${stakeReward.reward} XLM | balance: ${stakeReward.newBalance} XLM`);
+    }
+  }
+
   pushTxLog({
     timestamp: new Date().toISOString(),
     buyer: buyerAddress,
@@ -819,11 +838,12 @@ app.get('/health', (_req: Request, res: Response) => {
     federation: { domain: FEDERATION_DOMAIN, entries: federation.count },
     auth: 'payment-based (no separate auth layer — signed Stellar txs ARE proof of identity)',
     protocols: ['x402', 'mpp'],
+    staking: getStakingStats(),
     features: [
       'payment', 'path_payment', 'spending_policy', 'spending_dashboard', 'reliability_tracking',
       'time_bounds', 'federation', 'mpp', 'blocklist', 'spend_alerts', 'fiat_display',
       'contacts', 'rate_limiting', 'admin_fleet_view', 'default_policies', 'csv_export',
-      'escrow', 'claimable_balance',
+      'escrow', 'claimable_balance', 'reputation_staking',
     ],
   });
 });
@@ -854,6 +874,139 @@ import {
 } from './escrow.js';
 
 import { recordReputationOnChain } from './soroban.js';
+
+import {
+  recordStake, slashStake, rewardStake,
+  requestUnstake, withdrawStake,
+  getStake, getAgentStakes, getStakeLeaderboard, getStakingStats,
+} from './staking.js';
+
+// ──────────────────────────────────────────
+// REPUTATION STAKING — Agents put XLM where their mouth is
+// ──────────────────────────────────────────
+
+// POST /stake — Record a stake (after agent sends XLM to gateway)
+app.post('/stake', async (req: Request, res: Response) => {
+  const { agent, serviceId, txHash } = req.body;
+  if (!agent || !serviceId || !txHash) {
+    res.status(400).json({
+      error: 'missing fields',
+      required: { agent: 'Stellar public key', serviceId: 'service to stake on', txHash: 'deposit transaction hash' },
+      flow: '1. Send XLM to gateway address with memo stake_<serviceId>  2. Call POST /stake with the txHash',
+    });
+    return;
+  }
+  const result = await recordStake(agent, serviceId, txHash);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  const rate = await getXlmUsd();
+  res.status(201).json({
+    ...result.stake,
+    stakedUsd: xlmToUsd(result.stake!.amount, rate),
+    message: 'Stake recorded. Earn rewards on successful delivery. Bad service = slashing.',
+  });
+});
+
+// POST /stake/slash — Slash an agent's stake for bad delivery
+app.post('/stake/slash', (req: Request, res: Response) => {
+  const { agent, serviceId, reason, percent } = req.body;
+  if (!agent || !serviceId) {
+    res.status(400).json({ error: 'missing agent or serviceId' });
+    return;
+  }
+  const result = slashStake(agent, serviceId, reason, percent);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  console.log(`[${new Date().toISOString()}] ⚠️ STAKE SLASHED | ${agent.slice(0, 12)} | service: ${serviceId} | -${result.slashed} XLM | remaining: ${result.remaining} XLM`);
+  res.json(result);
+});
+
+// POST /stake/reward — Reward an agent's stake for good delivery
+app.post('/stake/reward', (req: Request, res: Response) => {
+  const { agent, serviceId, percent } = req.body;
+  if (!agent || !serviceId) {
+    res.status(400).json({ error: 'missing agent or serviceId' });
+    return;
+  }
+  const result = rewardStake(agent, serviceId, percent);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+// POST /stake/unstake — Request to withdraw stake (starts cooldown)
+app.post('/stake/unstake', (req: Request, res: Response) => {
+  const { agent, serviceId } = req.body;
+  if (!agent || !serviceId) {
+    res.status(400).json({ error: 'missing agent or serviceId' });
+    return;
+  }
+  const result = requestUnstake(agent, serviceId);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json({ ...result, message: 'Unstake requested. Withdraw available after cooldown.' });
+});
+
+// POST /stake/withdraw — Withdraw stake after cooldown (sends XLM back on-chain)
+app.post('/stake/withdraw', async (req: Request, res: Response) => {
+  const { agent, serviceId } = req.body;
+  const gatewaySecret = process.env.GATEWAY_SECRET;
+  if (!gatewaySecret) {
+    res.status(500).json({ error: 'gateway_secret_not_configured' });
+    return;
+  }
+  if (!agent || !serviceId) {
+    res.status(400).json({ error: 'missing agent or serviceId' });
+    return;
+  }
+  const result = await withdrawStake(agent, serviceId, gatewaySecret);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  const rate = await getXlmUsd();
+  res.json({
+    ...result,
+    amountUsd: result.amount ? xlmToUsd(result.amount, rate) : '$0.00',
+    message: 'Stake withdrawn. XLM returned to agent wallet.',
+  });
+});
+
+// GET /stake/:agent — Get all stakes for an agent
+app.get('/stake/:agent', (req: Request, res: Response) => {
+  const agentStakes = getAgentStakes(String(req.params.agent));
+  res.json({ agent: req.params.agent, stakes: agentStakes });
+});
+
+// GET /stake/:agent/:serviceId — Get specific stake
+app.get('/stake/:agent/:serviceId', (req: Request, res: Response) => {
+  const stake = getStake(String(req.params.agent), String(req.params.serviceId));
+  if (!stake) {
+    res.status(404).json({ error: 'no_stake_found' });
+    return;
+  }
+  res.json(stake);
+});
+
+// GET /staking/leaderboard — Who has the most skin in the game
+app.get('/staking/leaderboard', (req: Request, res: Response) => {
+  const status = req.query.status as string | undefined;
+  const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+  res.json(getStakeLeaderboard({ status, limit }));
+});
+
+// GET /staking/stats — Aggregate staking statistics
+app.get('/staking/stats', (req: Request, res: Response) => {
+  res.json(getStakingStats());
+});
 
 // POST /escrow/create — Lock funds until service is delivered
 app.post('/escrow/create', async (req: Request, res: Response) => {

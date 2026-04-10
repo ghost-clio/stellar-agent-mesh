@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, 'SF Pro Display', sans-serif; width: 1920px; height: 1080px; overflow: hidden; }
+.slide { width: 1920px; height: 1080px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 80px; }
+.title { font-size: 72px; font-weight: 700; color: white; margin-bottom: 30px; }
+.subtitle { font-size: 28px; color: #707070; margin-bottom: 20px; }
+.highlight { font-size: 24px; color: #3b82f6; margin-bottom: 10px; }
+.dim { color: #707070; }
+.red { color: #ef4444; }
+.green { color: #22c55e; }
+.blue { color: #3b82f6; }
+.amber { color: #f59e0b; }
+.small { font-size: 20px; color: #404040; margin-top: 20px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; width: 100%; max-width: 1400px; margin-top: 40px; }
+.feature { font-size: 24px; color: #3b82f6; margin: 8px 0; }
+.stats-row { display: flex; gap: 120px; margin-top: 40px; }
+.stat { text-align: center; }
+.stat-num { font-size: 96px; font-weight: 700; }
+.stat-label { font-size: 24px; color: #707070; margin-top: 10px; }
+.agent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px 120px; width: 100%; max-width: 1400px; margin-top: 30px; }
+.agent { padding: 20px; }
+.agent-name { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.agent-role { font-size: 20px; color: #707070; }
+.agent-desc { font-size: 18px; color: #505050; margin-top: 4px; }
+.agent-stats { font-size: 16px; color: #404040; margin-top: 8px; font-family: 'SF Mono', monospace; }
+h2 { font-size: 56px; font-weight: 700; margin-bottom: 30px; }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide" id="slide1">
+  <div class="title">Stellar Agent Mesh</div>
+  <div class="subtitle">Agent-to-Agent Economic Infrastructure on Stellar</div>
+  <div class="highlight">4 AI Agents • 954 Transactions • Dual Protocol</div>
+  <div class="subtitle" style="font-size:22px">x402 + MPP Dual Protocol • Federation • Spending Governance</div>
+  <div class="small">Built by ghost-clio</div>
+</div>
+
+<!-- Slide 2: Problem -->
+<div class="slide" id="slide2" style="display:none">
+  <h2 class="red">The Problem</h2>
+  <div style="font-size:30px; color:white; margin-bottom:20px">AI agents need to pay each other for services.</div>
+  <div class="subtitle">Current solutions build payment clients OR servers.</div>
+  <div style="font-size:36px; color:#3b82f6; margin:20px 0; font-weight:600">Nobody builds the MESH.</div>
+  <div class="subtitle">Discovery • Governance • Identity • Funding • Audit</div>
+</div>
+
+<!-- Slide 3: Solution -->
+<div class="slide" id="slide3" style="display:none">
+  <h2 class="green">The Solution</h2>
+  <div style="font-size:28px; color:white; margin-bottom:10px">One gateway. Any agent framework. Real Stellar rails.</div>
+  <div class="grid">
+    <div>
+      <div class="feature">✦ x402 Micropayments</div>
+      <div class="feature">✦ MPP Sessions</div>
+      <div class="feature">✦ Federation Identity (SEP-2)</div>
+      <div class="feature">✦ Spending Governance</div>
+      <div class="feature">✦ Fleet Admin (RBAC)</div>
+    </div>
+    <div>
+      <div class="feature">✦ Fiat On-Ramp (SEP-24)</div>
+      <div class="feature">✦ Blocklist + Spend Alerts</div>
+      <div class="feature">✦ CSV Audit Export</div>
+      <div class="feature">✦ Escrow + Claimable Balances</div>
+      <div class="feature">✦ Path Payments (Auto FX)</div>
+    </div>
+  </div>
+  <div class="amber" style="font-size:22px; margin-top:30px">Settles in under 5 seconds on Stellar Testnet</div>
+</div>
+
+<!-- Slide 4: Agents -->
+<div class="slide" id="slide4" style="display:none">
+  <h2 class="amber">The Agents</h2>
+  <div class="agent-grid">
+    <div class="agent">
+      <div class="agent-name blue">Alice</div>
+      <div class="agent-role">Discovery Agent</div>
+      <div class="agent-desc">Web search, news aggregation</div>
+      <div class="agent-stats">Txs: 244 | Sold: 128</div>
+    </div>
+    <div class="agent">
+      <div class="agent-name red">Pixel</div>
+      <div class="agent-role">Creative Agent</div>
+      <div class="agent-desc">Image generation, style transfer</div>
+      <div class="agent-stats">Txs: 230 | Sold: 126</div>
+    </div>
+    <div class="agent">
+      <div class="agent-name green">Sage</div>
+      <div class="agent-role">Analytics Agent</div>
+      <div class="agent-desc">Code review, bug analysis</div>
+      <div class="agent-stats">Txs: 8 | Bought: 8</div>
+    </div>
+    <div class="agent">
+      <div class="agent-name" style="color:#a855f7">Quant</div>
+      <div class="agent-role">Market Agent</div>
+      <div class="agent-desc">Market data, risk scoring</div>
+      <div class="agent-stats">Txs: 8 | Bought: 8</div>
+    </div>
+  </div>
+  <div class="small">All transactions verified on Stellar Horizon Explorer</div>
+</div>
+
+<!-- Slide 5: Stats -->
+<div class="slide" id="slide5" style="display:none">
+  <h2>Live Results</h2>
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-num green">954</div>
+      <div class="stat-label">Transactions</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num blue">2</div>
+      <div class="stat-label">Protocols (x402 + MPP)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num amber">33 XLM</div>
+      <div class="stat-label">Volume</div>
+    </div>
+  </div>
+  <div class="subtitle" style="margin-top:50px">Live on Stellar Testnet • Verifiable on Horizon</div>
+  <div class="highlight" style="margin-top:10px">ghost-clio.github.io/stellar-agent-mesh</div>
+</div>
+
+<!-- Slide 6: End -->
+<div class="slide" id="slide6" style="display:none">
+  <div class="title">Stellar Agent Mesh</div>
+  <div class="highlight" style="font-size:24px">github.com/ghost-clio/stellar-agent-mesh</div>
+  <div class="subtitle" style="margin-top:15px">Built for Stellar Hacks: Agents</div>
+</div>
+
+</body>
+</html>

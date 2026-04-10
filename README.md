@@ -90,6 +90,17 @@ Stellar Agent Mesh is a protocol-agnostic payment gateway that any agent framewo
 | **Reliability tracking** | Per-agent success/failure counts. Honest failure log, not ratings. |
 | **Persistent JSONL logs** | Append-only, survive restarts. |
 
+### Reputation Staking (Skin in the Game)
+| Feature | Description |
+|---------|-------------|
+| **Stake XLM** | Agents deposit real XLM to back their service quality. Verified on Horizon. |
+| **Auto-reward** | On every successful paid delivery, seller's stake earns 0.5% yield. Compounding. |
+| **Auto-slash** | On service failure, 10% of stake is burned. Bad actors lose money. |
+| **Cooldown unstake** | Want your stake back? Request unstake, wait 1 hour, then withdraw. No rug pulls. |
+| **Leaderboard** | `/staking/leaderboard` — who has the most skin in the game? Sorted by stake amount. |
+| **JSONL audit log** | All stake events (deposit, reward, slash, withdraw) logged to `staking.jsonl`. |
+| **Liquidation** | If an agent's stake hits zero from slashing, they're marked `liquidated`. No more trust. |
+
 ### Escrow (Pay-on-Completion)
 | Feature | Description |
 |---------|-------------|
@@ -110,6 +121,7 @@ Stellar Agent Mesh is a protocol-agnostic payment gateway that any agent framewo
 | **Payment-based auth** | Signed Stellar transactions ARE proof of identity. No separate auth layer. |
 | **60s time bounds** | All txs expire in 60 seconds. Replay protection. |
 | **Zero axios** | Gateway uses native `fetch`. No supply chain attack surface. |
+| **Staking enforcement** | Bad service = automatic stake slashing. Economic security, not just reputation scores. |
 | **Enforcement order** | Rate limit (429) → Blocklist (403) → Spending policy (403) → Payment |
 
 ## Payment Flow
@@ -170,6 +182,19 @@ Agent A needs code review from Agent B:
 | GET | `/balance/:address` | XLM balance |
 | GET | `/txlog` | Audit log (since/until/limit/csv) |
 | GET | `/health` | System status |
+
+### Staking
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/stake` | Record a stake (after sending XLM to gateway) |
+| POST | `/stake/slash` | Slash agent's stake for bad delivery |
+| POST | `/stake/reward` | Reward agent's stake for good delivery |
+| POST | `/stake/unstake` | Request unstake (starts cooldown) |
+| POST | `/stake/withdraw` | Withdraw stake after cooldown |
+| GET | `/stake/:agent` | Get all stakes for an agent |
+| GET | `/stake/:agent/:serviceId` | Get specific stake |
+| GET | `/staking/leaderboard` | Skin-in-the-game leaderboard |
+| GET | `/staking/stats` | Aggregate staking statistics |
 
 ### Escrow
 | Method | Endpoint | Description |
@@ -234,7 +259,8 @@ npx tsc && node dist/index.js
 - Contacts + Venmo-style send by name
 - Soroban contract on testnet
 - 54 tests passing
-- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 patterns, 4 Nemotron agents, persistent tx logs
+- Reputation staking: 4 agents with 23+ XLM staked, auto-reward/slash on every delivery
+- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 22 patterns, 4 Nemotron agents, persistent tx logs
 
 ## Limitations
 
