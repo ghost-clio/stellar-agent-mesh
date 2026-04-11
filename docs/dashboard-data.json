@@ -1,10 +1,10 @@
 {
-  "totalTxs": 1308,
+  "totalTxs": 500,
   "verifiedCount": 495,
   "successCount": 495,
   "escrowCount": 28,
   "totalVolume": 537.0056,
-  "uptimeHours": 2.3,
+  "uptimeHours": 3.9,
   "agentCount": 4,
   "network": "testnet",
   "protocolBreakdown": {
@@ -490,13 +490,5 @@
       "txHash": "8f5177aa0a0bbea244db82c8feb7d8817b4b8bfa9c4af014991408e9d18b78d9"
     }
   ],
-  "lastUpdated": "2026-04-10T22:49:24.900757Z",
-  "staking": {
-    "totalStaked": 24.17,
-    "totalSlashed": 0.91,
-    "totalEarned": 1.76,
-    "activeStakes": 4,
-    "uniqueAgents": 4
-  },
-  "features": 19
+  "lastUpdated": "2026-04-11T00:27:53.127162Z"
 }
