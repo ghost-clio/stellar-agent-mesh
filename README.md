@@ -257,7 +257,7 @@ npx tsc && node dist/index.js
 - SEP-24 fiat on-ramp integration
 - Asset-agnostic service pricing
 - Contacts + Venmo-style send by name
-- Soroban contract on testnet
+- Soroban registry contract (226 lines Rust, gateway-mediated reputation recording)
 - 1,326 live testnet transactions (1,316 verified with real tx hashes)
 - Reputation staking: 4 agents with 20+ XLM staked, auto-reward/slash on every delivery
 - [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 patterns, 4 Nemotron agents, persistent tx logs
