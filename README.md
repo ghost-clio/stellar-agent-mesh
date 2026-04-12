@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/74c0a1c2-3f82-4c44-8fe2-9f6a0604a855
 
 > **Stellar Hacks: Agents** submission — built by [ghost-clio](https://github.com/ghost-clio)
 
-🔗 **[Live Dashboard](https://ghost-clio.github.io/stellar-agent-mesh/)** · **[Battle Harness](https://github.com/ghost-clio/stellar-agent-mesh-harness)** · **[Demo Video](https://ghost-clio.github.io/stellar-agent-mesh/#demo)**
+🔗 **[Live Dashboard](https://ghost-clio.github.io/stellar-agent-mesh/)** · **[Battle Harness](https://github.com/ghost-clio/stellar-agent-mesh-harness)** · **[Slides](https://ghost-clio.github.io/stellar-agent-mesh/slides.html)**
 
 ## The Problem
 
