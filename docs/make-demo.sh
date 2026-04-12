@@ -26,7 +26,7 @@ ffmpeg -y -f lavfi -i "color=c=0x0a0a0a:s=${W}x${H}:d=6" \
   -vf "\
     drawtext=text='Stellar Agent Mesh':fontsize=72:fontcolor=white:x=(w-tw)/2:y=h/2-120:enable='gte(t,0.5)',\
     drawtext=text='Agent-to-Agent Economic Infrastructure on Stellar':fontsize=28:fontcolor=0x707070:x=(w-tw)/2:y=h/2-30:enable='gte(t,1)',\
-    drawtext=text='4 AI Agents • 954 Transactions • 99.4%% Success':fontsize=24:fontcolor=0x3b82f6:x=(w-tw)/2:y=h/2+30:enable='gte(t,1.5)',\
+    drawtext=text='4 AI Agents • 1326 Transactions • 99.3%% Success':fontsize=24:fontcolor=0x3b82f6:x=(w-tw)/2:y=h/2+30:enable='gte(t,1.5)',\
     drawtext=text='x402 + MPP Dual Protocol • Federation • Spending Governance':fontsize=22:fontcolor=0x707070:x=(w-tw)/2:y=h/2+70:enable='gte(t,2)',\
     drawtext=text='Built by ghost-clio':fontsize=20:fontcolor=0x404040:x=(w-tw)/2:y=h/2+140:enable='gte(t,2.5)'\
   " -t 6 -c:v libx264 -pix_fmt yuv420p "$OUT/01-title.mp4"
@@ -72,18 +72,18 @@ ffmpeg -y -f lavfi -i "color=c=0x0a0a0a:s=${W}x${H}:d=5" \
     drawtext=text='Any agent becomes economic actor':fontsize=18:fontcolor=0x707070:x=1100:y=440:enable='gte(t,1.7)',\
     drawtext=text='|':fontsize=40:fontcolor=0x404040:x=w/2-5:y=480:enable='gte(t,2)',\
     drawtext=text='BATTLE HARNESS':fontsize=22:fontcolor=0xef4444:x=(w-tw)/2:y=560:enable='gte(t,2.3)',\
-    drawtext=text='4 AI agents • 16 economic scenarios • 954 verified txs':fontsize=18:fontcolor=0x707070:x=(w-tw)/2:y=600:enable='gte(t,2.5)'\
+    drawtext=text='4 AI agents • 16 economic scenarios • 1326 verified txs':fontsize=18:fontcolor=0x707070:x=(w-tw)/2:y=600:enable='gte(t,2.5)'\
   " -t 5 -c:v libx264 -pix_fmt yuv420p "$OUT/04-arch.mp4"
 
 # Stats slide  
 ffmpeg -y -f lavfi -i "color=c=0x0a0a0a:s=${W}x${H}:d=5" \
   -vf "\
     drawtext=text='Live Results':fontsize=56:fontcolor=white:x=(w-tw)/2:y=150:enable='gte(t,0.3)',\
-    drawtext=text='954':fontsize=120:fontcolor=0x22c55e:x=300:y=320:enable='gte(t,0.8)',\
+    drawtext=text='1326':fontsize=120:fontcolor=0x22c55e:x=300:y=320:enable='gte(t,0.8)',\
     drawtext=text='Transactions':fontsize=24:fontcolor=0x707070:x=300:y=450:enable='gte(t,1)',\
-    drawtext=text='99.4%%':fontsize=120:fontcolor=0x3b82f6:x=800:y=320:enable='gte(t,1.2)',\
+    drawtext=text='99.3%%':fontsize=120:fontcolor=0x3b82f6:x=800:y=320:enable='gte(t,1.2)',\
     drawtext=text='Success Rate':fontsize=24:fontcolor=0x707070:x=870:y=450:enable='gte(t,1.4)',\
-    drawtext=text='33 XLM':fontsize=120:fontcolor=0xf59e0b:x=1300:y=320:enable='gte(t,1.6)',\
+    drawtext=text='81K XLM':fontsize=120:fontcolor=0xf59e0b:x=1300:y=320:enable='gte(t,1.6)',\
     drawtext=text='Volume':fontsize=24:fontcolor=0x707070:x=1400:y=450:enable='gte(t,1.8)',\
     drawtext=text='Live on Stellar Testnet • Verifiable on Horizon':fontsize=22:fontcolor=0x707070:x=(w-tw)/2:y=560:enable='gte(t,2.5)',\
     drawtext=text='ghost-clio.github.io/stellar-agent-mesh':fontsize=20:fontcolor=0x3b82f6:x=(w-tw)/2:y=620:enable='gte(t,3)'\
