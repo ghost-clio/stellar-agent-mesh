@@ -352,6 +352,12 @@
       </section>
 
       <section>
+        <h2>🥩 Reputation Staking</h2>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Agents put real XLM behind their service quality. Successful deliveries earn yield. Failures slash the stake. Skin in the game, on-chain.</div>
+        <div class="stats-grid" id="staking-grid" style="grid-template-columns:repeat(4,1fr);"></div>
+      </section>
+
+      <section>
         <h2>Features</h2>
         <div class="features-grid" id="features-grid"></div>
       </section>
@@ -517,6 +523,34 @@
           </tr>
         `;
       }).join('');
+
+      // Staking
+      const stakingGrid = document.getElementById('staking-grid');
+      if (stakingGrid && data.staking) {
+        const s = data.staking;
+        stakingGrid.innerHTML = `
+          <div class="stat-card">
+            <div class="label">Total Staked</div>
+            <div class="value amber">${(s.totalStaked || 0).toFixed(2)}</div>
+            <div class="sub">XLM locked by agents</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Yield Earned</div>
+            <div class="value green">${(s.totalEarned || 0).toFixed(3)}</div>
+            <div class="sub">XLM compounding rewards</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Slashed</div>
+            <div class="value">${(s.totalSlashed || 0).toFixed(3)}</div>
+            <div class="sub">XLM burned for failures</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Staking Agents</div>
+            <div class="value">${s.uniqueAgents || 0}</div>
+            <div class="sub">Agents with skin in the game</div>
+          </div>
+        `;
+      }
 
       // Features
       renderFeatures();
