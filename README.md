@@ -227,7 +227,7 @@ Agent A needs code review from Agent B:
 | `gateway/` | Express server. x402 + MPP, federation, governance, funding. Zero axios. |
 | `contracts/registry/` | Soroban contract (226 lines Rust). On-chain registry + reliability. |
 | `skill/` | OpenClaw AgentSkill. Teaches agents the Stellar economic mental model. |
-| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | Separate repo. 4 AI agents, 16 patterns, proves the infra works. |
+| [harness](https://github.com/ghost-clio/stellar-agent-mesh-harness) | Separate repo. 4 Nemotron agents, 16 patterns, proves the infra works. |
 
 ## Quick Start
 
@@ -258,9 +258,9 @@ npx tsc && node dist/index.js
 - Asset-agnostic service pricing
 - Contacts + Venmo-style send by name
 - Soroban contract on testnet
-- 54 tests passing
-- Reputation staking: 4 agents with 23+ XLM staked, auto-reward/slash on every delivery
-- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 22 patterns, 4 Nemotron agents, persistent tx logs
+- 1,326 live testnet transactions (1,316 verified with real tx hashes)
+- Reputation staking: 4 agents with 20+ XLM staked, auto-reward/slash on every delivery
+- [Battle harness](https://github.com/ghost-clio/stellar-agent-mesh-harness): 16 patterns, 4 Nemotron agents, persistent tx logs
 
 ## Limitations
 

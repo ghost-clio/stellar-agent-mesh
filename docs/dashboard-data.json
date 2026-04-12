@@ -3,8 +3,8 @@
   "verifiedCount": 1316,
   "successCount": 1316,
   "escrowCount": 69,
-  "totalVolume": 81173.16,
-  "uptimeHours": 23.9,
+  "totalVolume": 1465.26,
+  "uptimeHours": 24.1,
   "agentCount": 4,
   "network": "testnet",
   "protocolBreakdown": {
@@ -20,32 +20,32 @@
   },
   "agents": {
     "atlas": {
+      "txCount": 309,
+      "successRate": "99%",
+      "bought": 309,
+      "sold": 0,
+      "volume": 378.82
+    },
+    "sage": {
+      "txCount": 322,
+      "successRate": "99%",
+      "bought": 322,
+      "sold": 0,
+      "volume": 269.68
+    },
+    "pixel": {
       "txCount": 310,
       "successRate": "99%",
       "bought": 310,
       "sold": 0,
-      "volume": 19510.4
-    },
-    "sage": {
-      "txCount": 302,
-      "successRate": "99%",
-      "bought": 302,
-      "sold": 0,
-      "volume": 10633.77
-    },
-    "pixel": {
-      "txCount": 314,
-      "successRate": "99%",
-      "bought": 314,
-      "sold": 0,
-      "volume": 39968.47
+      "volume": 350.32
     },
     "quant": {
-      "txCount": 306,
+      "txCount": 305,
       "successRate": "99%",
-      "bought": 306,
+      "bought": 305,
       "sold": 0,
-      "volume": 10986.86
+      "volume": 405.14
     }
   },
   "recentTransactions": [
