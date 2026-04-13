@@ -6,16 +6,33 @@
   <title>Stellar Agent Mesh — Live Dashboard</title>
   <style>
     :root {
-      --bg: #0a0a0a;
-      --surface: #141414;
-      --border: #1e1e1e;
-      --text: #e0e0e0;
-      --text-dim: #707070;
-      --accent: #3b82f6;
-      --green: #22c55e;
-      --red: #ef4444;
+      --bg: #07090f;
+      --surface: #0f1118;
+      --surface2: #13161f;
+      --border: #1c2030;
+      --text: #e2e8f0;
+      --text-dim: #64748b;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --green: #10b981;
+      --red: #f43f5e;
       --amber: #f59e0b;
+      --cyan: #06b6d4;
+      --purple: #a855f7;
       --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,6 +40,8 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
       background: var(--bg);
+      background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.06) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 100%, rgba(168,85,247,0.04) 0%, transparent 60%);
       color: var(--text);
       line-height: 1.6;
       min-height: 100vh;
@@ -36,34 +55,72 @@
 
     header {
       margin-bottom: 48px;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: var(--accent2);
+      font-family: var(--mono);
+      margin-bottom: 14px;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+      display: inline-block;
     }
 
     header h1 {
-      font-size: 28px;
-      font-weight: 600;
-      letter-spacing: -0.5px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -1px;
       margin-bottom: 8px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     header p {
       color: var(--text-dim);
       font-size: 15px;
+      max-width: 560px;
     }
 
     header .links {
-      margin-top: 12px;
+      margin-top: 14px;
       display: flex;
-      gap: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     header .links a {
-      color: var(--accent);
+      color: var(--text-dim);
       text-decoration: none;
-      font-size: 13px;
+      font-size: 12px;
       font-family: var(--mono);
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: all 0.15s;
     }
 
-    header .links a:hover { text-decoration: underline; }
+    header .links a:hover {
+      color: var(--accent2);
+      border-color: rgba(99,102,241,0.4);
+      background: rgba(99,102,241,0.06);
+    }
 
     .stats-grid {
       display: grid;
@@ -75,28 +132,35 @@
     .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
+      border-radius: 10px;
+      padding: 20px 22px;
+      transition: border-color 0.2s, transform 0.2s;
+      animation: fadeIn 0.4s ease;
+    }
+    .stat-card:hover {
+      border-color: rgba(99,102,241,0.3);
+      transform: translateY(-1px);
     }
 
     .stat-card .label {
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       color: var(--text-dim);
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     .stat-card .value {
-      font-size: 32px;
-      font-weight: 600;
+      font-size: 30px;
+      font-weight: 700;
       font-family: var(--mono);
+      letter-spacing: -1px;
     }
 
     .stat-card .sub {
       font-size: 12px;
       color: var(--text-dim);
-      margin-top: 4px;
+      margin-top: 5px;
     }
 
     .stat-card .value.green { color: var(--green); }
@@ -108,10 +172,16 @@
     }
 
     section h2 {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
       margin-bottom: 16px;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.2px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-size: 11px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
     }
 
     .agents-grid {
@@ -123,8 +193,14 @@
     .agent-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      animation: fadeIn 0.4s ease;
+    }
+    .agent-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
 
     .agent-card .name {
@@ -221,9 +297,11 @@
     .feature {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 14px 16px;
+      transition: border-color 0.15s;
     }
+    .feature:hover { border-color: rgba(99,102,241,0.3); }
 
     .feature .feature-name {
       font-size: 14px;
@@ -273,12 +351,15 @@
 
     footer {
       border-top: 1px solid var(--border);
-      padding-top: 24px;
+      padding-top: 20px;
       margin-top: 48px;
       font-size: 12px;
       color: var(--text-dim);
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     .cost-badge {
@@ -309,12 +390,13 @@
 <body>
   <div class="container">
     <header>
+      <div class="header-badge"><span class="live-dot"></span> Live · Stellar Testnet</div>
       <h1>Stellar Agent Mesh</h1>
-      <p>Agent-to-agent economic infrastructure on Stellar. Live transaction data from autonomous agents.</p>
+      <p>Agent-to-agent economic infrastructure on Stellar. Autonomous AI agents discovering services, negotiating prices, and settling payments — on-chain, in real time.</p>
       <div class="links">
-        <a href="https://github.com/ghost-clio/stellar-agent-mesh">gateway repo</a>
-        <a href="https://github.com/ghost-clio/stellar-agent-mesh-harness">harness repo</a>
-        <a href="slides.html">slides</a>
+        <a href="https://github.com/ghost-clio/stellar-agent-mesh">↗ gateway repo</a>
+        <a href="https://github.com/ghost-clio/stellar-agent-mesh-harness">↗ harness repo</a>
+        <a href="slides.html">↗ slides</a>
       </div>
       <div style="max-width:760px; margin:18px auto 0; font-size:14px; color:#888; line-height:1.7; text-align:left; background:#111; border:1px solid #222; border-radius:8px; padding:16px 20px;">
         <b style="color:#ddd;">What is this?</b> A payment gateway that lets AI agents discover services, pay for them via Stellar, and prove delivery — all in under 5 seconds. Any agent framework plugs in via HTTP. One process handles discovery, dual-protocol payments (x402 + MPP), spending governance, federation identity, fiat on-ramp, and fleet management.<br><br>
@@ -486,20 +568,45 @@
         <span><span class="legend-dot" style="background:var(--amber)"></span>Escrow ${escrowPct}%</span>
       `;
 
+      // Compute sold counts dynamically from recentTransactions
+      const soldCounts = { atlas: 0, sage: 0, pixel: 0, quant: 0 };
+      const boughtCounts = { atlas: 0, sage: 0, pixel: 0, quant: 0 };
+      for (const tx of (data.recentTransactions || [])) {
+        if (tx.type === 'payment' && tx.serviceId) {
+          const seller = tx.serviceId.split('-')[0];
+          if (seller in soldCounts) soldCounts[seller]++;
+        }
+        if (tx.type === 'payment' && tx.buyerName) {
+          const buyer = tx.buyerName.toLowerCase();
+          if (buyer in boughtCounts) boughtCounts[buyer]++;
+        }
+      }
+
       // Agent cards
       const agentsGrid = document.getElementById('agents-grid');
+      const agentEmojis = { atlas: '🔍', sage: '🧠', pixel: '🎨', quant: '📊' };
+      const agentColors = { atlas: '#3b82f6', sage: '#22c55e', pixel: '#a855f7', quant: '#f59e0b' };
       agentsGrid.innerHTML = Object.entries(AGENT_NAMES).map(([key, agent]) => {
         const agentData = data.agents?.[key] || {};
+        const sold = soldCounts[key] || agentData.sold || 0;
+        const bought = boughtCounts[key] || agentData.bought || 0;
+        const color = agentColors[key];
+        const emoji = agentEmojis[key];
+        const vol = (agentData.volume || 0).toFixed(1);
         return `
-          <div class="agent-card">
-            <div class="name">${agent.name}</div>
+          <div class="agent-card" style="border-color: ${color}22; position:relative; overflow:hidden;">
+            <div style="position:absolute;top:12px;right:14px;font-size:28px;opacity:0.15;">${emoji}</div>
+            <div class="name" style="color:${color};">${emoji} ${agent.name}</div>
             <div class="federation">${agent.federation}</div>
-            <div class="capabilities">${agent.capabilities}</div>
+            <div class="capabilities" style="margin-bottom:14px;">${agent.capabilities}</div>
             <div class="agent-stats">
               <div class="agent-stat">Txs: <span>${agentData.txCount || 0}</span></div>
-              <div class="agent-stat">Success: <span>${agentData.successRate || '—'}</span></div>
-              <div class="agent-stat">Bought: <span>${agentData.bought || 0}</span></div>
-              <div class="agent-stat">Sold: <span>${agentData.sold || 0}</span></div>
+              <div class="agent-stat">Success: <span style="color:var(--green)">${agentData.successRate || '—'}</span></div>
+              <div class="agent-stat">Bought: <span style="color:#06b6d4">${bought}</span></div>
+              <div class="agent-stat">Sold: <span style="color:${color}">${sold}</span></div>
+            </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-dim);">
+              Volume: <span style="font-family:var(--mono);color:var(--text);">${vol} XLM</span>
             </div>
           </div>
         `;

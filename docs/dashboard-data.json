@@ -23,28 +23,28 @@
       "txCount": 309,
       "successRate": "99%",
       "bought": 309,
-      "sold": 0,
+      "sold": 6,
       "volume": 378.82
     },
     "sage": {
       "txCount": 322,
       "successRate": "99%",
       "bought": 322,
-      "sold": 0,
+      "sold": 15,
       "volume": 269.68
     },
     "pixel": {
       "txCount": 310,
       "successRate": "99%",
       "bought": 310,
-      "sold": 0,
+      "sold": 13,
       "volume": 350.32
     },
     "quant": {
       "txCount": 305,
       "successRate": "99%",
       "bought": 305,
-      "sold": 0,
+      "sold": 12,
       "volume": 405.14
     }
   },
